@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Little Fun — Premium Social Marketplace</title>
+  <meta name="description" content="Discover verified companions for real-world social experiences. Coffee, concerts, travel, fitness, dining and more.">
+  <meta name="theme-color" content="#6366F1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SIDEBAR
+       ═══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo" style="flex-direction:column; align-items:flex-start; gap:4px; padding:20px 10px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="logo-mark" style="background:linear-gradient(135deg, #ff2a7a, #8b5cf6); border-radius:12px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; box-shadow:0 4px 10px rgba(255,42,122,0.25);">
+          <i class="fa-solid fa-heart"></i>
+        </div>
+        <div class="logo-text" style="font-weight:900; font-size:26px; color:var(--text-primary); letter-spacing:-0.5px;">
+          L<span style="position:relative; display:inline-block;">ı<i class="fa-solid fa-heart" style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:11px; color:#ff2a7a;"></i></span>ttle&nbsp;<span style="color:#ff2a7a;">Fun</span>
+        </div>
+      </div>
+      <div style="font-size:9px; font-weight:700; letter-spacing:1.5px; color:var(--text-muted); text-transform:uppercase; margin-left:44px; display:flex; align-items:center; gap:4px;">
+        <span style="height:1px; width:12px; background:var(--surface-border);"></span>
+        FOR REAL CONNECTIONS
+        <span style="height:1px; width:12px; background:var(--surface-border);"></span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+
+      <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <div class="nav-icon"><i class="fa-solid fa-house"></i></div>
+        <span>Home</span>
+      </div>
+
+      <div class="nav-item" data-page="discover" onclick="navigateTo('discover')">
+        <div class="nav-icon"><i class="fa-solid fa-compass"></i></div>
+        <span>Discover</span>
+      </div>
+
+
+
+      <div class="nav-section-label">Social</div>
+
+      <div class="nav-item" data-page="messages" onclick="navigateTo('messages')">
+        <div class="nav-icon"><i class="fa-regular fa-comment-dots"></i></div>
+        <span>Messages</span>
+        <span class="nav-badge">3</span>
+      </div>
+
+
+
+      <div class="nav-section-label">Account</div>
+
+      <div class="nav-item" data-page="profile" onclick="navigateTo('profile')">
+        <div class="nav-icon"><i class="fa-regular fa-user"></i></div>
+        <span>My Profile</span>
+      </div>
+
+      <div class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+        <div class="nav-icon"><i class="fa-solid fa-gear"></i></div>
+        <span>Settings</span>
+      </div>
+
+
+    </nav>
+
+
+  </aside>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MAIN AREA
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="main-area">
+
+    <!-- Top Navigation -->
+    <header class="topnav">
+
+      <div class="topnav-page-title" id="topnavTitle">Dashboard</div>
+      <div class="topnav-page-title-mobile-logo" id="topnavMobileLogo" style="display:none; align-items:center; gap:8px;">
+        <div style="background:linear-gradient(135deg, #ff2a7a, #8b5cf6); color:#fff; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 2px 5px rgba(255,42,122,0.3);"><i class="fa-solid fa-heart"></i></div>
+        <div style="font-weight:900; font-size:22px; letter-spacing:-0.5px; color:var(--text-primary);">L<span style="position:relative; display:inline-block;">ı<i class="fa-solid fa-heart" style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:9px; color:#ff2a7a;"></i></span>ttle&nbsp;<span style="color:#ff2a7a;">Fun</span></div>
+      </div>
+
+      <div class="topnav-search">
+        <i class="fa-solid fa-magnifying-glass topnav-search-icon"></i>
+        <input class="topnav-search-input" id="globalSearch" placeholder="Search people, activities, cities..." autocomplete="off" onkeyup="onGlobalSearch(this.value)">
+      </div>
+
+      <div class="topnav-actions" style="position:relative;">
+
+        <button class="topnav-btn" id="notif-bell-btn" title="Notifications" onclick="toggleNotificationDropdown(event)">
+          <i class="fa-regular fa-bell"></i>
+          <div class="badge" id="notif-badge-count" style="display:none;background:var(--brand-primary);color:#fff;">0</div>
+        </button>
+
+        <button class="topnav-btn" title="Messages" onclick="navigateTo('messages')">
+          <i class="fa-regular fa-comment-dots"></i>
+          <div class="badge">3</div>
+        </button>
+
+        <!-- NOTIFICATIONS DROPDOWN -->
+        <div id="notif-dropdown" style="display:none;position:absolute;top:50px;right:0;width:340px;max-width:90vw;background:var(--surface-card);border:1px solid var(--surface-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);z-index:9999;overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--surface-border);background:var(--surface-muted);">
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);"><i class="fa-solid fa-bell" style="color:var(--brand-primary);margin-right:6px;"></i> Notifications</div>
+            <button onclick="markAllNotificationsRead()" style="background:none;border:none;color:var(--brand-primary);font-size:11px;font-weight:600;cursor:pointer;">Mark all read</button>
+          </div>
+          <div id="notif-dropdown-list" style="max-height:360px;overflow-y:auto;padding:8px 0;">
+            <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Loading notifications…</div>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- ─── DASHBOARD ──────────────────────────────────────── -->
+    <div class="page-container active" id="page-dashboard">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h1 class="page-title" id="dashboard-greeting">Good morning 👋</h1>
+          <p class="page-subtitle">Here's what's happening around you today.</p>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-grid" id="dashboard-stats"></div>
+
+      <!-- Main Dashboard Grid -->
+      <div class="dashboard-grid">
+        <div>
+          <!-- Top Activity Achievers -->
+          <div class="panel mb-16">
+            <div class="panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span><i class="fa-solid fa-trophy" style="color:var(--accent-amber)"></i> Top Activity Achievers</span>
+              <span class="tag-pill brand" style="font-size:10px;">Monthly</span>
+            </div>
+            <div id="dashboard-leaderboard"></div>
+          </div>
+
+          <!-- Nearby Companions -->
+          <div class="panel mb-16">
+            <div class="panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span><i class="fa-solid fa-location-dot" style="color:var(--brand-primary)"></i> Nearby Companions</span>
+              <button class="btn btn-secondary btn-sm" onclick="navigateTo('discover')">View All</button>
+            </div>
+            <div class="people-grid" id="dashboard-nearby" style="margin-top:12px;"></div>
+          </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── DISCOVER ───────────────────────────────────────── -->
+    <div class="page-container" id="page-discover">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h1 class="page-title">Discover Companions</h1>
+          <p class="page-subtitle">48 verified people available near you</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-secondary" onclick="openFilterSortModal()"><i class="fa-solid fa-sliders"></i> Filters</button>
+          <button class="btn btn-secondary" onclick="openFilterSortModal()"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort</button>
+          <button class="btn btn-ghost btn-sm" id="clearDiscoverFilterBtn" style="display:none; color:var(--accent-rose); font-weight:700;" onclick="resetAllFiltersAndSort()">
+            <i class="fa-solid fa-rotate-left"></i> Clear All
+          </button>
+        </div>
+      </div>
+
+      <div class="people-grid" id="discover-grid"></div>
+    </div>
+
+    <!-- ─── ACTIVITY REQUESTS ──────────────────────────────── -->
+    <div class="page-container" id="page-activities">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h1 class="page-title">Activity Requests</h1>
+          <p class="page-subtitle">Browse social requests posted near you</p>
+        </div>
+      </div>
+
+      <!-- Filter Chips -->
+      <div class="filter-tabs mb-16">
+        <div class="filter-tab active" onclick="filterActivities('all')">All</div>
+        <div class="filter-tab" onclick="filterActivities('coffee')">☕ Coffee</div>
+        <div class="filter-tab" onclick="filterActivities('concert')">🎵 Concert</div>
+        <div class="filter-tab" onclick="filterActivities('travel')">✈️ Travel</div>
+        <div class="filter-tab" onclick="filterActivities('dinner')">🍽️ Dinner</div>
+        <div class="filter-tab" onclick="filterActivities('gym')">💪 Fitness</div>
+        <div class="filter-tab" onclick="filterActivities('networking')">🤝 Networking</div>
+        <div class="filter-tab" onclick="filterActivities('movie')">🎬 Movie</div>
+        <div class="filter-tab" onclick="filterActivities('shopping')">🛍️ Shopping</div>
+        <div class="filter-tab" onclick="filterActivities('festival')">🎪 Festival</div>
+      </div>
+
+      <!-- Sort + Search Row -->
+      <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
+        <div style="position:relative; flex:1; min-width:220px;">
+          <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:13px;"></i>
+          <input style="width:100%; padding:9px 16px 9px 38px; background:var(--surface-bg); border:1.5px solid var(--surface-border); border-radius:var(--radius-pill); font-size:13.5px; color:var(--text-primary);" placeholder="Search activities...">
+        </div>
+        <select style="padding:9px 16px; background:var(--surface-bg); border:1.5px solid var(--surface-border); border-radius:var(--radius-pill); font-size:13px; color:var(--text-secondary); cursor:pointer;">
+          <option>Sort: Nearest</option>
+          <option>Sort: Newest</option>
+          <option>Sort: Trending</option>
+          <option>Sort: AI Recommended</option>
+        </select>
+      </div>
+
+      <div class="activity-grid" id="activities-grid"></div>
+    </div>
+
+    <!-- ─── NEARBY PEOPLE ──────────────────────────────────── -->
+    <div class="page-container" id="page-nearby">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h1 class="page-title">Nearby People</h1>
+          <p class="page-subtitle">48 verified companions online near you</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--accent-emerald); font-weight:600;"><span class="online-indicator"></span> 48 online now</span>
+          <button class="btn btn-secondary" onclick="openFilterSortModal()"><i class="fa-solid fa-sliders"></i> Filters</button>
+          <button class="btn btn-secondary" onclick="openFilterSortModal()"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort</button>
+          <button class="btn btn-ghost btn-sm" id="clearNearbyFilterBtn" style="display:none; color:var(--accent-rose); font-weight:700;" onclick="resetAllFiltersAndSort()">
+            <i class="fa-solid fa-rotate-left"></i> Clear All
+          </button>
+          <button class="btn btn-secondary" onclick="showToast('🗺️ Map View opening...')"><i class="fa-solid fa-map-location-dot"></i> Map View</button>
+        </div>
+      </div>
+
+      <div class="people-grid" id="nearby-grid"></div>
+    </div>
+
+    <!-- ─── MESSAGES ───────────────────────────────────────── -->
+    <div class="page-container" id="page-messages" style="padding:0; height:calc(100vh - var(--topnav-height)); overflow:hidden;">
+      <div class="messages-layout" style="border-radius:0; border:none; border-top:1px solid var(--surface-border);">
+        <!-- Conversations Sidebar -->
+        <div class="messages-sidebar">
+          <div class="messages-sidebar-header">
+            <div class="messages-sidebar-title">Messages</div>
+            <input class="messages-sidebar-search" placeholder="Search conversations...">
+          </div>
+          <div class="conv-list" id="conv-list"></div>
+        </div>
+
+        <!-- Chat Window -->
+        <div class="chat-window" id="chat-window">
+          <div style="display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:12px; color:var(--text-muted);">
+            <i class="fa-regular fa-comment-dots" style="font-size:40px; color:var(--surface-border);"></i>
+            <p style="font-size:14px;">Select a conversation to start chatting</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── MEETINGS ───────────────────────────────────────── -->
+    <div class="page-container" id="page-meetings">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h1 class="page-title">Meetings</h1>
+          <p class="page-subtitle">Manage your upcoming and past meetups</p>
+        </div>
+        <button class="btn btn-primary" onclick="showToast('📅 Opening meeting scheduler...')">
+          <i class="fa-solid fa-calendar-plus"></i> Schedule Meeting
+        </button>
+      </div>
+
+      <div class="filter-tabs mb-20">
+        <div class="filter-tab active">All</div>
+        <div class="filter-tab">Upcoming</div>
+        <div class="filter-tab">Confirmed</div>
+        <div class="filter-tab">Pending</div>
+        <div class="filter-tab">Completed</div>
+        <div class="filter-tab">Cancelled</div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div>
+          <div class="section-title mb-16">Upcoming Meetups</div>
+          <div id="meetings-list"></div>
+        </div>
+        <div>
+          <!-- Calendar Widget -->
+          <div class="panel">
+            <div class="panel-title"><i class="fa-regular fa-calendar"></i> August 2026</div>
+            <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;">
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">Mo</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">Tu</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">We</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">Th</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">Fr</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">Sa</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;">Su</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;color:var(--text-muted);"></div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;color:var(--text-muted);"></div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;color:var(--text-muted);"></div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">1</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">2</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">3</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:700;background:var(--brand-primary);color:white;cursor:pointer;">4</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">5</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">6</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:700;background:rgba(99,102,241,0.1);color:var(--brand-primary);cursor:pointer;">7</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">8</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">9</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">10</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">11</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">12</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">13</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">14</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:700;background:rgba(99,102,241,0.1);color:var(--brand-primary);cursor:pointer;">15</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">16</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">17</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">18</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">19</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">20</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">21</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:700;background:rgba(99,102,241,0.1);color:var(--brand-primary);cursor:pointer;">22</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">23</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">24</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">25</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">26</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">27</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">28</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">29</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">30</div>
+              <div style="padding:6px 4px;border-radius:8px;font-size:12.5px;font-weight:400;color:var(--text-primary);cursor:pointer;">31</div>
+              <div style="padding:6px 4px;"></div>
+            </div>
+            <div class="divider"></div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Today — Aug 4</div>
+              <div style="background:rgba(99,102,241,0.07); border-left:3px solid var(--brand-primary); border-radius:0 8px 8px 0; padding:10px 12px;">
+                <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Coffee with Priya</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">10:00 AM · Blue Tokai</div>
+              </div>
+              <div style="background:rgba(99,102,241,0.07); border-left:3px solid var(--brand-secondary); border-radius:0 8px 8px 0; padding:10px 12px;">
+                <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Concert with Meera</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">7:30 PM · NSCI Dome</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+
+
+    <!-- ─── REVIEWS ────────────────────────────────────────── -->
+    <div class="page-container" id="page-reviews">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h1 class="page-title">Reviews</h1>
+          <p class="page-subtitle">41 verified reviews · Average 4.9 ★</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openAddReviewModal()"><i class="fa-solid fa-star"></i> Write Review</button>
+      </div>
+
+      <div class="dashboard-grid">
+        <div id="reviews-list"></div>
+        <div>
+          <div class="panel">
+            <div class="panel-title"><i class="fa-solid fa-chart-bar"></i> Rating Breakdown</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:700;color:var(--text-secondary);width:14px;text-align:right;">5</span>
+              <i class="fa-solid fa-star" style="color:var(--accent-amber);font-size:11px;"></i>
+              <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" style="width:85%;background:var(--accent-amber);"></div></div>
+              <span style="font-size:12px;color:var(--text-muted);width:20px;">35</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:700;color:var(--text-secondary);width:14px;text-align:right;">4</span>
+              <i class="fa-solid fa-star" style="color:var(--accent-amber);font-size:11px;"></i>
+              <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" style="width:10%;background:var(--accent-amber);"></div></div>
+              <span style="font-size:12px;color:var(--text-muted);width:20px;">4</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:700;color:var(--text-secondary);width:14px;text-align:right;">3</span>
+              <i class="fa-solid fa-star" style="color:var(--accent-amber);font-size:11px;"></i>
+              <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" style="width:4%;background:var(--accent-amber);"></div></div>
+              <span style="font-size:12px;color:var(--text-muted);width:20px;">1</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:700;color:var(--text-secondary);width:14px;text-align:right;">2</span>
+              <i class="fa-solid fa-star" style="color:var(--accent-amber);font-size:11px;"></i>
+              <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" style="width:1%;background:var(--accent-amber);"></div></div>
+              <span style="font-size:12px;color:var(--text-muted);width:20px;">1</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:700;color:var(--text-secondary);width:14px;text-align:right;">1</span>
+              <i class="fa-solid fa-star" style="color:var(--accent-amber);font-size:11px;"></i>
+              <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" style="width:0%;background:var(--accent-amber);"></div></div>
+              <span style="font-size:12px;color:var(--text-muted);width:20px;">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── VERIFICATION ───────────────────────────────────── -->
+    <div class="page-container" id="page-verification">
+      <div style="margin-bottom:24px;">
+        <h1 class="page-title">Verification Center</h1>
+        <p class="page-subtitle">Build trust and unlock more features by completing verification steps.</p>
+      </div>
+
+      <!-- Trust Score Banner -->
+      <div style="background:var(--brand-gradient); border-radius:var(--radius-2xl); padding:24px; color:white; margin-bottom:24px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:48px; font-weight:900; line-height:1;">98</div>
+          <div style="font-size:12px; opacity:0.8;">Trust Score</div>
+        </div>
+        <div>
+          <div style="font-size:18px; font-weight:800; margin-bottom:4px;">Excellent! You're a Top Verified Companion</div>
+          <div style="font-size:13px; opacity:0.85;">Complete remaining steps to reach 100 and get the Premium Badge.</div>
+          <div class="progress-bar-wrap mt-12" style="background:rgba(255,255,255,0.2);">
+            <div class="progress-bar-fill" style="width:98%; background:white;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="verification-grid">
+        <div class="verify-card verified">
+          <div class="verify-icon" style="background:rgba(16,185,129,0.1); color:var(--accent-emerald);"><i class="fa-solid fa-envelope"></i></div>
+          <div class="verify-status-badge done"><i class="fa-solid fa-check"></i> Verified</div>
+          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Email Address</div>
+          <div style="font-size:12px; color:var(--text-muted);">aarav.singh@gmail.com</div>
+        </div>
+        <div class="verify-card verified">
+          <div class="verify-icon" style="background:rgba(16,185,129,0.1); color:var(--accent-emerald);"><i class="fa-solid fa-phone"></i></div>
+          <div class="verify-status-badge done"><i class="fa-solid fa-check"></i> Verified</div>
+          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Phone Number</div>
+          <div style="font-size:12px; color:var(--text-muted);">+91 98765 •••••</div>
+        </div>
+        <div class="verify-card verified">
+          <div class="verify-icon" style="background:rgba(16,185,129,0.1); color:var(--accent-emerald);"><i class="fa-solid fa-id-card"></i></div>
+          <div class="verify-status-badge done"><i class="fa-solid fa-check"></i> Verified</div>
+          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Government ID</div>
+          <div style="font-size:12px; color:var(--text-muted);">Aadhaar Card — verified</div>
+        </div>
+        <div class="verify-card verified">
+          <div class="verify-icon" style="background:rgba(16,185,129,0.1); color:var(--accent-emerald);"><i class="fa-solid fa-face-smile-beam"></i></div>
+          <div class="verify-status-badge done"><i class="fa-solid fa-check"></i> Verified</div>
+          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Face Verification</div>
+          <div style="font-size:12px; color:var(--text-muted);">AI liveness check passed</div>
+        </div>
+        <div class="verify-card">
+          <div class="verify-icon" style="background:rgba(245,158,11,0.1); color:var(--accent-amber);"><i class="fa-solid fa-user-shield"></i></div>
+          <div class="verify-status-badge pending"><i class="fa-solid fa-clock"></i> In Review</div>
+          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Profile Review</div>
+          <div style="font-size:12px; color:var(--text-muted);">Admin review in progress</div>
+          <div class="progress-bar-wrap mt-8"><div class="progress-bar-fill" style="width:70%; background:var(--accent-amber);"></div></div>
+        </div>
+        <div class="verify-card">
+          <div class="verify-icon" style="background:rgba(99,102,241,0.1); color:var(--brand-primary);"><i class="fa-solid fa-magnifying-glass"></i></div>
+          <div class="verify-status-badge" style="background:rgba(99,102,241,0.1); color:var(--brand-primary);">Optional</div>
+          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">Background Check</div>
+          <div style="font-size:12px; color:var(--text-muted);">Premium trust signal</div>
+          <button class="btn btn-primary btn-xs mt-8" onclick="showToast('🔍 Background check initiated!')">Start Check</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PROFILE ────────────────────────────────────────── -->
+    <div class="page-container" id="page-profile">
+      <!-- Profile Header (Full width on desktop, card form on mobile) -->
+      <div class="profile-card-header">
+        <div class="profile-card-header-bg"></div>
+
+        <div class="profile-card-header-main">
+          <!-- Avatar with status indicator -->
+          <div style="position:relative; display:inline-block; flex-shrink:0;">
+            <img id="mainProfileAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop" alt="Profile" style="width:88px; height:88px; border-radius:50%; object-fit:cover; border:3.5px solid var(--brand-primary); box-shadow:0 0 0 4px rgba(99,102,241,0.15);">
+            <div style="position:absolute; bottom:2px; right:2px; width:16px; height:16px; background:var(--accent-emerald); border:2.5px solid white; border-radius:50%;" title="Available Now"></div>
+            <div style="position:absolute; top:0px; right:0px; width:20px; height:20px; background:var(--brand-primary); border:2px solid white; border-radius:50%; display:flex; align-items:center; justify-content:center;" title="Verified Profile">
+              <i class="fa-solid fa-check" style="font-size:9px; color:white;"></i>
+            </div>
+          </div>
+
+          <!-- Info -->
+          <div class="profile-card-header-info">
+            <div id="mainProfileName" style="font-size:22px; font-weight:800; color:var(--text-primary);">Aarav Sharma, 27</div>
+            <div id="mainProfileTagline" style="font-size:13px; color:var(--text-muted); margin-top:3px;">Full Stack & AI Architect • Senior Companion</div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
+              <span class="tag-pill emerald"><span class="online-indicator" style="margin-right:4px;"></span> Online</span>
+              <span class="tag-pill brand"><i class="fa-solid fa-shield-halved" style="font-size:10px;"></i> Verified Provider</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="profile-card-header-actions">
+          <button class="btn btn-secondary" onclick="openClientProfileModal()"><i class="fa-solid fa-pen-to-square"></i> Edit Profile</button>
+          <button class="btn btn-primary" onclick="showToast('📤 Profile link copied to clipboard!')"><i class="fa-solid fa-share-nodes"></i> Share Profile</button>
+        </div>
+      </div>
+
+
+      <!-- About -->
+      <div class="panel mb-16">
+        <div class="panel-title"><i class="fa-solid fa-user"></i> About Me</div>
+        <p id="mainProfileBio" style="font-size:14px; color:var(--text-secondary); line-height:1.7;">
+          Senior Executive Freelance Architect specializing in cloud infrastructure, AI agents, and high-performance web applications.
+        </p>
+        <div class="divider"></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div>
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Skills & Specialties</div>
+            <div class="people-card-tags" id="mainProfileSkills">
+              <span class="tag-pill brand">Full Stack Dev</span>
+              <span class="tag-pill brand">AI & Agents</span>
+              <span class="tag-pill brand">System Design</span>
+              <span class="tag-pill brand">Cloud Architecture</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Location & Base</div>
+            <div class="people-card-tags" id="mainProfileLocation">
+              <span class="tag-pill">Mumbai / Delhi, India</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Availability -->
+      <div class="panel">
+        <div class="panel-title"><i class="fa-regular fa-calendar"></i> Availability</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px;">
+          <div style="background:rgba(99,102,241,0.05); border:1.5px solid rgba(99,102,241,0.15); border-radius:var(--radius-lg); padding:12px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:4px;">☕</div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Today</div>
+            <div style="font-size:11px; color:var(--text-muted);">After 10 AM</div>
+          </div>
+          <div style="background:rgba(99,102,241,0.05); border:1.5px solid rgba(99,102,241,0.15); border-radius:var(--radius-lg); padding:12px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:4px;">🎵</div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Tomorrow</div>
+            <div style="font-size:11px; color:var(--text-muted);">Evening only</div>
+          </div>
+          <div style="background:rgba(99,102,241,0.05); border:1.5px solid rgba(99,102,241,0.15); border-radius:var(--radius-lg); padding:12px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:4px;">✈️</div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Weekend</div>
+            <div style="font-size:11px; color:var(--text-muted);">All day</div>
+          </div>
+          <div style="background:rgba(99,102,241,0.05); border:1.5px solid rgba(99,102,241,0.15); border-radius:var(--radius-lg); padding:12px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:4px;">🍽️</div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Weekday Eve</div>
+            <div style="font-size:11px; color:var(--text-muted);">6 PM onwards</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SETTINGS ───────────────────────────────────────── -->
+    <div class="page-container" id="page-settings">
+      <div style="margin-bottom:24px;">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Manage your account preferences and privacy</p>
+      </div>
+      <div style="max-width:680px; display:flex; flex-direction:column; gap:14px;">
+        <div class="settings-row" onclick="openEditProfileModal()">
+          <div class="settings-icon" style="background:rgba(99,102,241,0.1);color:var(--brand-primary);"><i class="fa-solid fa-user"></i></div>
+          <div class="settings-info"><div class="settings-title">Account &amp; Profile</div><div class="settings-sub">Edit name, photo, bio, interests</div></div>
+          <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+        </div>
+        <div class="settings-row" onclick="navigateTo('verification')">
+          <div class="settings-icon" style="background:rgba(16,185,129,0.1);color:var(--accent-emerald);"><i class="fa-solid fa-lock"></i></div>
+          <div class="settings-info"><div class="settings-title">Privacy &amp; Safety</div><div class="settings-sub">Who can see your profile, block list</div></div>
+          <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+        </div>
+
+        <div class="settings-row" onclick="navigateTo('verification')">
+          <div class="settings-icon" style="background:rgba(139,92,246,0.1);color:var(--brand-secondary);"><i class="fa-solid fa-shield-halved"></i></div>
+          <div class="settings-info"><div class="settings-title">Verification</div><div class="settings-sub">Manage your identity documents</div></div>
+          <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+        </div>
+        <div class="settings-row" onclick="showToast('Opening Preferences...')">
+          <div class="settings-icon" style="background:rgba(249,115,22,0.1);color:var(--accent-orange);"><i class="fa-solid fa-sliders"></i></div>
+          <div class="settings-info"><div class="settings-title">Preferences</div><div class="settings-sub">Activity types, companion filters, distance</div></div>
+          <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+        </div>
+        <div class="settings-row" onclick="showToast('Opening Help &amp; Support...')">
+          <div class="settings-icon" style="background:rgba(14,165,233,0.1);color:var(--accent-sky);"><i class="fa-solid fa-circle-question"></i></div>
+          <div class="settings-info"><div class="settings-title">Help &amp; Support</div><div class="settings-sub">FAQs, report an issue, contact us</div></div>
+          <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+        </div>
+        <div class="settings-row" onclick="showToast('Signing out...')" style="border-color:rgba(244,63,94,0.15);">
+          <div class="settings-icon" style="background:rgba(244,63,94,0.1);color:var(--accent-rose);"><i class="fa-solid fa-right-from-bracket"></i></div>
+          <div class="settings-info"><div class="settings-title" style="color:var(--accent-rose);">Sign Out</div><div class="settings-sub">Log out from Companion Hub</div></div>
+          <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ADMIN PANEL ──────────────────────────────────────── -->
+    <div class="page-container" id="page-admin">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <h1 class="page-title" style="margin:0;">Executive Admin Control Panel</h1>
+          </div>
+          <p class="page-subtitle" style="margin-top:4px;">Manage user profiles and system settings.</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        </div>
+      </div>
+
+      <!-- Admin Navigation Sub-Tabs -->
+      <div class="admin-tab-bar" style="display:flex; gap:8px; border-bottom:1px solid var(--surface-border); margin-bottom:24px; padding-bottom:4px; overflow-x:auto;">
+        <button class="admin-tab-btn active" data-tab="overview" onclick="switchAdminTab('overview')"><i class="fa-solid fa-chart-line"></i> Overview &amp; Telemetry</button>
+        <button class="admin-tab-btn" data-tab="users" onclick="switchAdminTab('users')"><i class="fa-solid fa-users"></i> Registered Users</button>
+        <button class="admin-tab-btn" data-tab="companions" onclick="switchAdminTab('companions')"><i class="fa-solid fa-masks-theater"></i> Companions</button>
+        <button class="admin-tab-btn" data-tab="settings" onclick="switchAdminTab('settings')"><i class="fa-solid fa-sliders"></i> App Controls</button>
+      </div>
+
+      <!-- SUB-TAB 1: OVERVIEW & TELEMETRY -->
+      <div class="admin-tab-content active" id="admin-tab-overview">
+        <div class="stat-grid" id="admin-overview-stats"></div>
+        
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-top:20px;">
+          <div class="panel">
+            <div class="panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span><i class="fa-solid fa-bullseye" style="color:var(--brand-primary);"></i> Active Target Assignments</span>
+              <span class="tag-pill brand">Live Matrix</span>
+            </div>
+            <div id="admin-overview-assignments"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title"><span><i class="fa-solid fa-shield-halved" style="color:var(--accent-emerald);"></i> System Controls</span></div>
+            <div style="display:flex; flex-direction:column; gap:12px; font-size:13px;" id="admin-overview-controls">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--surface-muted); border-radius:8px;">
+                <span>Auto Bot Reply Engine</span>
+                <span class="tag-pill emerald">ACTIVE</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--surface-muted); border-radius:8px;">
+                <span>Proactive Greeting Mode</span>
+                <span class="tag-pill brand">ENABLED</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--surface-muted); border-radius:8px;">
+                <span>Auto-Match Radius</span>
+                <strong style="color:var(--brand-primary);">15 km</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--surface-muted); border-radius:8px;">
+                <span>Platform Escrow Fee</span>
+                <strong style="color:var(--accent-amber);">15%</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 2: REGISTERED USERS DIRECTORY -->
+      <div class="admin-tab-content" id="admin-tab-users" style="display:none;">
+        <div class="panel mb-20">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h3 style="margin:0; font-size:16px; font-weight:800;">App Profiles Directory ("Kon Kon Profile Banaya Hai")</h3>
+            </div>
+            <input type="text" id="adminUserSearch" placeholder="Search by name, city, phone..." style="padding:8px 14px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px; width:260px;" onkeyup="renderAdminUsersTable()">
+          </div>
+          <div id="admin-users-table-container" style="overflow-x:auto;"></div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 3: COMPANIONS DIRECTORY -->
+      <div class="admin-tab-content" id="admin-tab-companions" style="display:none;">
+        <div class="panel mb-20">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h3 style="margin:0; font-size:16px; font-weight:800;">Admin Companions Directory</h3>
+            </div>
+            <button class="btn btn-primary" onclick="showCompanionModal()">+ Create Companion</button>
+          </div>
+          <div id="admin-companions-table-container" style="overflow-x:auto;"></div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 6: APP CONFIG & CONTROLS -->
+      <div class="admin-tab-content" id="admin-tab-settings" style="display:none;">
+        <div class="panel" style="max-width:680px;">
+          <div class="panel-title"><i class="fa-solid fa-sliders" style="color:var(--brand-primary);"></i> System Configuration &amp; Financial Controls</div>
+          <div style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Default Auto-Match Distance Radius (km)</label>
+              <input type="number" id="configRadiusInput" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Bot Simulated Response Delay (ms)</label>
+              <input type="number" id="configDelayInput" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Platform Escrow Service Fee (%)</label>
+              <input type="number" id="configFeeInput" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Safety &amp; Content Moderation Strictness</label>
+              <select id="configSafetySelect" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+                <option value="LOW">Low (Flexible Chat)</option>
+                <option value="MEDIUM" selected>Medium (Standard Verification)</option>
+                <option value="STRICT">Strict (Strict Moderation)</option>
+              </select>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:var(--surface-muted); border-radius:8px;">
+              <div>
+                <strong style="font-size:13px;">Enable Bot AI Companion Auto-Replies</strong>
+                <p style="margin:2px 0 0 0; font-size:11px; color:var(--text-muted);">Bots will automatically answer user messages using companion persona rules.</p>
+              </div>
+              <input type="checkbox" id="configAutoReplyToggle" checked style="width:18px; height:18px; cursor:pointer;">
+            </div>
+
+            <button class="btn btn-primary" style="margin-top:10px; font-weight:800;" onclick="saveAdminAppConfig()">Save System Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<!-- Mobile Bottom Navigation Bar -->
+<nav class="mobile-bottom-nav">
+  <div class="mobile-nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+    <i class="fa-solid fa-house"></i>
+    <span>Home</span>
+  </div>
+  <div class="mobile-nav-item" data-page="discover" onclick="navigateTo('discover')">
+    <i class="fa-solid fa-compass"></i>
+    <span>Discover</span>
+  </div>
+  <div class="mobile-nav-item" data-page="messages" onclick="navigateTo('messages')">
+    <i class="fa-regular fa-comment-dots"></i>
+    <span>Messages</span>
+    <div class="mobile-nav-badge">3</div>
+  </div>
+  <div class="mobile-nav-item" data-page="profile" onclick="navigateTo('profile')">
+    <i class="fa-regular fa-user"></i>
+    <span>Profile</span>
+  </div>
+</nav>
+
+<!-- Admin Companion Modal -->
+<div id="adminCompanionModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:440px; max-width:90vw; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 id="adminCompanionModalTitle" style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-user-plus" style="color:var(--brand-primary); margin-right:8px;"></i>Create Companion Profile</h3>
+      <button onclick="closeCompanionModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+
+    <input type="hidden" id="companionId">
+
+    <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Name</label>
+        <input type="text" id="companionName" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:14px;" placeholder="E.g., Jessica">
+      </div>
+      <div style="display:flex; gap:12px;">
+        <div style="flex:1;">
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Age</label>
+          <input type="number" id="companionAge" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:14px;" placeholder="21">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Distance (km)</label>
+          <input type="text" id="companionDistance" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:14px;" placeholder="E.g., 2.4">
+        </div>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Meeting Reward (₹)</label>
+        <input type="number" id="companionReward" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:14px;" placeholder="E.g., 1000">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Photo URL (Optional)</label>
+        <input type="text" id="companionPhotoUrl" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:14px;" placeholder="https://...">
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:12px;">
+      <button class="btn btn-secondary" onclick="closeCompanionModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCompanion()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Meeting Modal -->
+<div id="scheduleMeetingModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:440px; max-width:90vw; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-calendar-plus" style="color:var(--brand-primary); margin-right:8px;"></i>Schedule Meeting</h3>
+      <button onclick="closeScheduleMeetingModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">Activity / Title</label>
+        <input type="text" id="meetTitleInput" placeholder="e.g. Coffee Meetup, Concert, Dinner..." style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">Date</label>
+          <input type="date" id="meetDateInput" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">Time</label>
+          <input type="time" id="meetTimeInput" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">Location</label>
+        <input type="text" id="meetLocInput" placeholder="e.g. Blue Tokai Cafe, Connaught Place" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeScheduleMeetingModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmScheduleMeeting()"><i class="fa-solid fa-calendar-check"></i> Confirm Meeting</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div id="editProfileModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:520px; max-width:92vw; max-height:88vh; overflow-y:auto; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-user-pen" style="color:var(--brand-primary); margin-right:8px;"></i>Edit Executive Profile</h3>
+      <button onclick="closeEditProfileModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Display Name</label>
+          <input type="text" id="editProfileNameInput" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Hourly Rate (₹/hr)</label>
+          <input type="number" id="editProfileHourlyRateInput" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Category / Expertise</label>
+        <input type="text" id="editProfileCategoryInput" placeholder="e.g. Full Stack & AI Architect" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Title / Subtitle</label>
+        <input type="text" id="editProfileTitleInput" placeholder="e.g. Senior Executive Provider • AI Specialist" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Location</label>
+        <input type="text" id="editProfileLocationInput" placeholder="e.g. Mumbai / Delhi, India" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Bio / Professional Summary</label>
+        <textarea id="editProfileBioInput" rows="3" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px; font-family:inherit;"></textarea>
+      </div>
+
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Skills (comma-separated)</label>
+        <input type="text" id="editProfileSkillsInput" placeholder="Full Stack Dev, AI & Agents, System Design" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+
+
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeEditProfileModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditProfile()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Post Activity Modal -->
+<div id="postActivityModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:480px; max-width:90vw; max-height:88vh; overflow-y:auto; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-plus-circle" style="color:var(--brand-primary); margin-right:8px;"></i>Post Activity Request</h3>
+      <button onclick="closePostActivityModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Request Title</label>
+        <input type="text" id="postReqTitle" placeholder="e.g. Coffee Walk in Bandra / UI Prototyping" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Category</label>
+          <select id="postReqCategory" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+            <option value="Coffee Meetup">☕ Coffee Meetup</option>
+            <option value="Concert Buddy">🎵 Concert Buddy</option>
+            <option value="Travel Companion">✈️ Travel Companion</option>
+            <option value="Fine Dining">🍽️ Fine Dining</option>
+            <option value="Gym Partner">💪 Gym Partner</option>
+            <option value="Networking">🤝 Networking</option>
+            <option value="Design & UI/UX">🎨 Design & UI/UX</option>
+            <option value="Software & AI">💻 Software & AI</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Budget (₹)</label>
+          <input type="number" id="postReqBudget" placeholder="1500" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Location</label>
+          <input type="text" id="postReqLocation" placeholder="e.g. Bandra West, Mumbai" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Urgency</label>
+          <select id="postReqUrgency" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+            <option value="NORMAL">Normal</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High Urgency ⚡</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Description</label>
+        <textarea id="postReqDesc" rows="3" placeholder="Describe what you are looking for..." style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px; font-family:inherit;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closePostActivityModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePostActivity()">Publish Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- Submit Bid Modal -->
+<div id="submitBidModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:440px; max-width:90vw; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-paper-plane" style="color:var(--brand-primary); margin-right:8px;"></i>Submit Proposal / Bid</h3>
+      <button onclick="closeSubmitBidModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+    <input type="hidden" id="submitBidReqId">
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Bid Amount (₹)</label>
+          <input type="number" id="submitBidAmount" placeholder="15000" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Duration</label>
+          <input type="text" id="submitBidDuration" placeholder="e.g. 2 Days / 3 Hours" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+        </div>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Pitch & Cover Message</label>
+        <textarea id="submitBidPitch" rows="3" placeholder="Explain why you are the best fit for this activity..." style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px; font-family:inherit;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeSubmitBidModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSubmitBid()">Submit Proposal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Withdraw Modal -->
+<div id="withdrawModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:440px; max-width:90vw; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-building-columns" style="color:var(--accent-emerald); margin-right:8px;"></i>Withdraw Earnings</h3>
+      <button onclick="closeWithdrawModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Withdrawal Amount (₹)</label>
+        <input type="number" id="withdrawAmountInput" placeholder="Enter amount" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Transfer Method</label>
+        <select id="withdrawMethodSelect" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+          <option value="UPI">UPI — alexmorgan@okaxis (Instant)</option>
+          <option value="BANK">HDFC Bank •••• 4921 (NEFT)</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeWithdrawModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="executeWithdrawal()">Confirm Withdrawal</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Match Modal -->
+<div id="aiMatchModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:480px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--brand-primary); margin-right:8px;"></i>AI Companion Recommendation Engine</h3>
+      <button onclick="closeAiMatchModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+    <div id="aiMatchResults" style="display:flex; flex-direction:column; gap:12px;">
+      <p style="font-size:13px; color:var(--text-muted);">Finding best matches...</p>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Person Detail Modal -->
+<div id="personDetailModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:420px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div id="personDetailContent"></div>
+  </div>
+</div>
+
+<!-- Add Review Modal -->
+<div id="addReviewModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:440px; max-width:90vw; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-star" style="color:var(--accent-amber); margin-right:8px;"></i>Write Post-Experience Review</h3>
+      <button onclick="closeAddReviewModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Star Rating (1-5)</label>
+        <select id="newReviewRating" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+          <option value="5">⭐⭐⭐⭐⭐ Excellent (5 Stars)</option>
+          <option value="4">⭐⭐⭐⭐ Very Good (4 Stars)</option>
+          <option value="3">⭐⭐⭐ Good (3 Stars)</option>
+          <option value="2">⭐⭐ Average (2 Stars)</option>
+          <option value="1">⭐ Poor (1 Star)</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Review Comment</label>
+        <textarea id="newReviewComment" rows="3" placeholder="Share your experience..." style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px; font-family:inherit;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeAddReviewModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitReviewFromUI()">Post Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- Filter & Sort Modal -->
+<div id="filterSortModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:480px; max-width:92vw; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--surface-border);">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <i class="fa-solid fa-sliders" style="color:var(--brand-primary); font-size:18px;"></i>
+        <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);">Filter & Sort</h3>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onclick="resetAllFiltersAndSort()" style="background:none; border:none; color:var(--accent-rose); font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          <i class="fa-solid fa-rotate-left"></i> Clear All
+        </button>
+        <button onclick="closeFilterSortModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); line-height:1;">&times;</button>
+      </div>
+    </div>
+
+    <!-- Sort By Section -->
+    <div style="margin-bottom:20px;">
+      <label style="display:block; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Sort By</label>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;" id="filterSortOptions">
+        <button class="filter-chip-btn active" data-sort="recommended" onclick="setSortOption('recommended', this)"><i class="fa-solid fa-wand-magic-sparkles"></i> Recommended</button>
+        <button class="filter-chip-btn" data-sort="nearest" onclick="setSortOption('nearest', this)"><i class="fa-solid fa-location-dot"></i> Nearest First</button>
+        <button class="filter-chip-btn" data-sort="trust" onclick="setSortOption('trust', this)"><i class="fa-solid fa-shield-halved"></i> Trust Score</button>
+        <button class="filter-chip-btn" data-sort="online" onclick="setSortOption('online', this)"><i class="fa-solid fa-circle" style="color:var(--accent-emerald);"></i> Online First</button>
+      </div>
+    </div>
+
+    <!-- Availability Filter -->
+    <div style="margin-bottom:20px;">
+      <label style="display:block; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Availability</label>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;" id="filterAvailabilityOptions">
+        <button class="filter-chip-btn active" data-avail="all" onclick="setAvailOption('all', this)">All Statuses</button>
+        <button class="filter-chip-btn" data-avail="available" onclick="setAvailOption('available', this)">⚡ Available Now</button>
+        <button class="filter-chip-btn" data-avail="today" onclick="setAvailOption('today', this)">📅 Available Today</button>
+      </div>
+    </div>
+
+    <!-- Verification Filter -->
+    <div style="margin-bottom:20px;">
+      <label style="display:block; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Verification</label>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;" id="filterVerificationOptions">
+        <button class="filter-chip-btn active" data-ver="all" onclick="setVerOption('all', this)">All Users</button>
+        <button class="filter-chip-btn" data-ver="verified" onclick="setVerOption('verified', this)"><i class="fa-solid fa-shield-halved"></i> Verified Only</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CLIENT AUTHENTICATION GATE — LOGIN ONLY (No self-register)
+     Admin creates accounts. Client uses ID (#EH-1001) or Email
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="client-auth-gate" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface-bg);border:1px solid var(--surface-border);border-radius:var(--radius-xl);padding:40px 36px;width:440px;max-width:100%;box-shadow:var(--shadow-xl);text-align:center;">
+
+    <!-- Logo -->
+    <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg, #ff2a7a, #8b5cf6);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;box-shadow:0 8px 24px rgba(255,42,122,0.3);">
+      <i class="fa-solid fa-heart"></i>
+    </div>
+    <div style="font-size:24px;font-weight:900;color:var(--text-primary);margin-bottom:6px;letter-spacing:-0.5px;">Little Fun</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;">Enter your admin-provided credentials to continue</div>
+
+    <!-- Info note -->
+    <div style="background:var(--surface-muted);border:1px solid var(--surface-border);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:24px;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+      <i class="fa-solid fa-key" style="color:var(--brand-secondary);margin-right:6px;"></i>Use your Client ID (e.g. <strong style="color:var(--text-primary);">#EH-1001</strong>) or Email + Password provided by the admin.
+    </div>
+
+    <!-- Error Alert -->
+    <div id="client-auth-error" style="display:none;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.2);color:var(--accent-rose);font-size:12px;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:16px;text-align:left;">
+      <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i><span id="client-auth-error-text">An error occurred</span>
+    </div>
+
+    <!-- Login Form -->
+    <div style="display:flex;flex-direction:column;gap:16px;text-align:left;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;display:block;margin-bottom:6px;">CLIENT ID OR EMAIL</label>
+        <input id="login-email" type="text" placeholder="#EH-1001 or email@example.com"
+          style="width:100%;background:var(--surface-muted);border:1px solid var(--surface-border);border-radius:var(--radius-md);padding:13px 16px;color:var(--text-primary);font-size:13px;outline:none;box-sizing:border-box;transition:var(--transition-fast);"
+          onfocus="this.style.borderColor='var(--brand-primary)';this.style.boxShadow='0 0 0 3px var(--brand-glow)'"
+          onblur="this.style.borderColor='var(--surface-border)';this.style.boxShadow='none'"
+          onkeypress="if(event.key==='Enter') clientLogin()" />
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;display:block;margin-bottom:6px;">PASSWORD</label>
+        <input id="login-password" type="password" placeholder="Enter your password"
+          style="width:100%;background:var(--surface-muted);border:1px solid var(--surface-border);border-radius:var(--radius-md);padding:13px 16px;color:var(--text-primary);font-size:13px;outline:none;box-sizing:border-box;transition:var(--transition-fast);"
+          onfocus="this.style.borderColor='var(--brand-primary)';this.style.boxShadow='0 0 0 3px var(--brand-glow)'"
+          onblur="this.style.borderColor='var(--surface-border)';this.style.boxShadow='none'"
+          onkeypress="if(event.key==='Enter') clientLogin()" />
+      </div>
+
+      <button id="btn-login-submit" onclick="clientLogin()" class="btn btn-primary"
+        style="width:100%;padding:14px;font-size:14px;margin-top:8px;border-radius:var(--radius-md);">
+        Login to Little Fun
+      </button>
+    </div>
+
+    <div style="margin-top:24px;font-size:12px;color:var(--text-muted);">
+      Don't have credentials? <a href="#" style="color:var(--brand-primary);font-weight:600;">Contact your admin</a>.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CLIENT PROFILE EDIT MODAL
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-client-profile-edit" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#161b22;border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:32px;width:480px;max-width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.6);max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div style="font-size:18px;font-weight:800;color:#f0f4ff;">✏️ Edit My Profile</div>
+      <button onclick="document.getElementById('modal-client-profile-edit').style.display='none'" style="background:none;border:none;color:#8b96b4;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+
+    <div id="profile-edit-error" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ef4444;"></div>
+
+    <!-- Avatar preview -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <img id="profile-edit-avatar-preview" src="" alt="Avatar"
+        style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #7c5cfc;margin-bottom:10px;"
+        onerror="this.src='https://ui-avatars.com/api/?name=U&background=7c5cfc&color=fff&size=80'" />
+      <div style="font-size:11px;color:#8b96b4;">Paste a photo URL below to update your avatar</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#8b96b4;letter-spacing:0.5px;display:block;margin-bottom:6px;">DISPLAY NAME</label>
+        <input id="pe-name" type="text" placeholder="Your full name"
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#f0f4ff;font-size:13px;outline:none;box-sizing:border-box;" />
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#8b96b4;letter-spacing:0.5px;display:block;margin-bottom:6px;">BIO</label>
+        <textarea id="pe-bio" placeholder="Tell us about yourself…" rows="3"
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#f0f4ff;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#8b96b4;letter-spacing:0.5px;display:block;margin-bottom:6px;">PHOTO URL (optional)</label>
+        <input id="pe-avatar" type="url" placeholder="https://... (direct image link)"
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#f0f4ff;font-size:13px;outline:none;box-sizing:border-box;"
+          oninput="const v=this.value;if(v) document.getElementById('profile-edit-avatar-preview').src=v;" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#8b96b4;letter-spacing:0.5px;display:block;margin-bottom:6px;">PHONE</label>
+          <input id="pe-phone" type="tel" placeholder="+91 98765 43210"
+            style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#f0f4ff;font-size:13px;outline:none;box-sizing:border-box;" />
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#8b96b4;letter-spacing:0.5px;display:block;margin-bottom:6px;">CITY</label>
+          <select id="pe-city"
+            style="width:100%;background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#f0f4ff;font-size:13px;outline:none;box-sizing:border-box;">
+            <option value="Delhi">Delhi</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Bengaluru">Bengaluru</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Pune">Pune</option>
+            <option value="Jaipur">Jaipur</option>
+            <option value="Chandigarh">Chandigarh</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Kolkata">Kolkata</option>
+            <option value="Ahmedabad">Ahmedabad</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#8b96b4;letter-spacing:0.5px;display:block;margin-bottom:6px;">EMAIL (optional update)</label>
+        <input id="pe-email" type="email" placeholder="your@email.com"
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#f0f4ff;font-size:13px;outline:none;box-sizing:border-box;" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:24px;">
+      <button onclick="saveClientProfile()"
+        style="flex:1;background:linear-gradient(135deg,#7c5cfc,#22d3ee);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(124,92,252,0.3);" id="btn-save-profile">
+        &#10003; Save Profile
+      </button>
+      <button onclick="document.getElementById('modal-client-profile-edit').style.display='none'"
+        style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px;color:#8b96b4;font-size:14px;font-weight:600;cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Open profile edit modal and pre-fill with current user data
+function openClientProfileModal() {
+  const user = window.getCurrentClient ? window.getCurrentClient() : null;
+  if (!user) { return; }
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
+  set('pe-name', user.name);
+  set('pe-bio', user.bio);
+  set('pe-avatar', user.avatar);
+  set('pe-phone', user.phone);
+  set('pe-email', user.email);
+  set('pe-city', user.city);
+  const preview = document.getElementById('profile-edit-avatar-preview');
+  if (preview && user.avatar) preview.src = user.avatar;
+  const errDiv = document.getElementById('profile-edit-error');
+  if (errDiv) errDiv.style.display = 'none';
+  const btn = document.getElementById('btn-save-profile');
+  if (btn) { btn.disabled = false; btn.textContent = '\u2705 Save Profile'; }
+  document.getElementById('modal-client-profile-edit').style.display = 'flex';
+}
+
+async function saveClientProfile() {
+  const btn = document.getElementById('btn-save-profile');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  const errDiv = document.getElementById('profile-edit-error');
+  if (errDiv) errDiv.style.display = 'none';
+
+  const data = {
+    name:   document.getElementById('pe-name')?.value?.trim(),
+    bio:    document.getElementById('pe-bio')?.value?.trim(),
+    avatar: document.getElementById('pe-avatar')?.value?.trim(),
+    phone:  document.getElementById('pe-phone')?.value?.trim(),
+    email:  document.getElementById('pe-email')?.value?.trim(),
+    city:   document.getElementById('pe-city')?.value,
+  };
+
+  if (!data.name) {
+    if (errDiv) { errDiv.textContent = 'Name cannot be empty'; errDiv.style.display = 'block'; }
+    if (btn) { btn.disabled = false; btn.textContent = '\u2705 Save Profile'; }
+    return;
+  }
+
+  const updated = await (window.updateClientProfile ? window.updateClientProfile(data) : null);
+  if (updated) {
+    document.getElementById('modal-client-profile-edit').style.display = 'none';
+    const nameEl = document.getElementById('client-user-name');
+    if (nameEl && updated.name) nameEl.textContent = updated.name;
+    const cityEl = document.getElementById('client-user-city');
+    if (cityEl && updated.city) cityEl.textContent = '📍 ' + updated.city;
+    const avatarEl = document.getElementById('client-user-avatar');
+    if (avatarEl && updated.avatar) avatarEl.src = updated.avatar;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '\u2705 Save Profile'; }
+}
+</script>
+
+<!-- Edit Client Profile Modal -->
+<div id="clientEditProfileModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:var(--surface-card, #fff); border-radius:var(--radius-xl, 16px); padding:24px; width:450px; max-width:92vw; box-shadow:var(--shadow-xl); border:1px solid var(--surface-border);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);"><i class="fa-solid fa-user-pen" style="color:var(--brand-primary); margin-right:8px;"></i>Edit My Profile</h3>
+      <button onclick="closeClientEditProfileModal()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Full Name</label>
+        <input type="text" id="clientEditName" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Email</label>
+        <input type="email" id="clientEditEmail" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Phone</label>
+        <input type="text" id="clientEditPhone" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">City</label>
+        <input type="text" id="clientEditCity" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">Bio</label>
+        <textarea id="clientEditBio" rows="3" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--surface-border); background:var(--surface-muted); color:var(--text-primary); font-size:13px; font-family:inherit;"></textarea>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeClientEditProfileModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveClientEditProfile()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="clientAuth.js"></script>
+<script src="app.js"></script>
+<script src="earn.js"></script>
+
+</body>
+</html>

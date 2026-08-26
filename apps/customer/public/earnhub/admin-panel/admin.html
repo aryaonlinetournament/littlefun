@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Earn Hub — Super Admin Panel</title>
+  <meta name="description" content="Super Admin Panel for Little Fun platform. Manage clients, bots, assignments, and chat monitoring." />
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- ADMIN LOGIN GATE — Shown BEFORE dashboard. Blocks all access.     -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div id="login-gate" style="
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#060912 0%,#0d1117 50%,#060912 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Inter',sans-serif;
+">
+  <div style="
+    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+    border-radius:24px;padding:48px;width:400px;max-width:90vw;
+    box-shadow:0 32px 80px rgba(0,0,0,0.6);
+  ">
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:32px;">
+      <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg, #ff2a7a, #8b5cf6);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;box-shadow:0 8px 20px rgba(255,42,122,0.3);">
+        <i class="fa-solid fa-heart"></i>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:#f0f4ff;">Little Fun Admin</div>
+        <div style="font-size:12px;color:#8b96b4;">Super Admin Panel — Restricted Access</div>
+      </div>
+    </div>
+
+    <!-- Error message -->
+    <div id="login-error" style="
+      display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);
+      border-radius:10px;padding:12px 16px;margin-bottom:20px;
+      font-size:13px;color:#ef4444;
+    ">
+      ❌ <span id="login-error-text">Invalid credentials. Try again.</span>
+    </div>
+
+    <!-- Fields -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#8b96b4;display:block;margin-bottom:8px;">USERNAME</label>
+        <input id="admin-username-input" type="text" placeholder="Enter admin username"
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;color:#f0f4ff;font-size:14px;font-family:inherit;outline:none;"
+          onkeydown="if(event.key==='Enter')document.getElementById('admin-password-input').focus()" />
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#8b96b4;display:block;margin-bottom:8px;">PASSWORD</label>
+        <input id="admin-password-input" type="password" placeholder="Enter admin password"
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;color:#f0f4ff;font-size:14px;font-family:inherit;outline:none;"
+          onkeydown="if(event.key==='Enter')adminLogin()" />
+      </div>
+      <button onclick="adminLogin()" id="login-btn"
+        style="width:100%;padding:14px;background:linear-gradient(135deg,#7c5cfc,#22d3ee);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;transition:opacity 0.2s;"
+        onmouseover="this.style.opacity=0.9" onmouseout="this.style.opacity=1">
+        🔐 Login to Admin Panel
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:24px;font-size:11px;color:#4b5572;">
+      🛡️ Unauthorized access is prohibited and logged.
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+
+  <!-- ── Top Navbar ── -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="navbar-logo" style="background:linear-gradient(135deg, #ff2a7a, #8b5cf6);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;">
+        <i class="fa-solid fa-heart"></i>
+      </div>
+      <div>
+        <div class="navbar-title">Little Fun Admin</div>
+        <div class="navbar-subtitle">Super Admin Panel v2.0</div>
+      </div>
+    </div>
+    <div class="navbar-spacer"></div>
+    <div class="navbar-status">
+      <div class="status-dot"></div>
+      <span id="system-status-text">All Systems Online</span>
+    </div>
+    <span id="admin-logged-in-label" style="font-size:12px;color:#8b96b4;padding:0 8px;"></span>
+    <button class="btn btn-secondary btn-sm" onclick="AdminApp.refreshAll()" id="refresh-btn">
+      <i class="fa fa-rotate-right"></i> Refresh
+    </button>
+    <button class="btn btn-sm" onclick="adminLogout()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);margin-left:8px;">
+      <i class="fa fa-sign-out-alt"></i> Logout
+    </button>
+  </nav>
+
+  <!-- ── KPI Stats Strip ── -->
+  <div class="kpi-strip" id="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Clients</div>
+      <div class="kpi-value counter" id="kpi-total-clients">—</div>
+      <div class="kpi-sub">Registered users</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Paid Clients</div>
+      <div class="kpi-value green counter" id="kpi-paid-clients">—</div>
+      <div class="kpi-sub"><span id="kpi-free-clients">—</span> free users</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Fake Profiles</div>
+      <div class="kpi-value purple counter" id="kpi-total-profiles">—</div>
+      <div class="kpi-sub"><span id="kpi-active-profiles">—</span> active | <span id="kpi-hidden-profiles">—</span> hidden</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Meeting Requests</div>
+      <div class="kpi-value yellow counter" id="kpi-meeting-requests">—</div>
+      <div class="kpi-sub"><span id="kpi-pending-requests">—</span> pending action</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Managed Cities</div>
+      <div class="kpi-value blue counter" id="kpi-managed-cities">12</div>
+      <div class="kpi-sub">Coverage areas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">System Health</div>
+      <div class="kpi-value green" id="kpi-uptime">100%</div>
+      <div class="kpi-sub">All servers online</div>
+    </div>
+  </div>
+
+  <!-- ── Tab Navigation ── -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" data-tab="clients" id="tab-btn-clients" onclick="AdminApp.switchTab('clients')">
+      <i class="fa fa-users"></i> Clients
+      <span class="tab-badge" id="tab-badge-clients">0</span>
+    </button>
+    <button class="tab-btn" data-tab="fake-profiles" id="tab-btn-fake-profiles" onclick="AdminApp.switchTab('fake-profiles')">
+      <i class="fa fa-user-secret"></i> Fake Profiles
+      <span class="tab-badge" id="tab-badge-fake-profiles">0</span>
+    </button>
+    <button class="tab-btn" data-tab="meeting-requests" id="tab-btn-meeting-requests" onclick="AdminApp.switchTab('meeting-requests')">
+      <i class="fa fa-calendar-check"></i> Meeting Requests
+      <span class="tab-badge" id="tab-badge-meeting-requests" style="background:var(--accent-red);">0</span>
+    </button>
+    <button class="tab-btn" data-tab="top-activity" id="tab-btn-top-activity" onclick="AdminApp.switchTab('top-activity')">
+      <i class="fa fa-trophy"></i> Top Activity
+    </button>
+    <button class="tab-btn" data-tab="provider-profile" id="tab-btn-provider-profile" onclick="AdminApp.switchTab('provider-profile')">
+      <i class="fa fa-user-tie"></i> Provider Profile
+    </button>
+    <button class="tab-btn" data-tab="app-config" id="tab-btn-app-config" onclick="AdminApp.switchTab('app-config')">
+      <i class="fa fa-cogs"></i> App Config
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- TAB 1: CLIENTS                                      -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-clients">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Client Registry</div>
+        <div class="section-count" id="clients-count-label">Loading clients…</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary btn-sm" onclick="AdminApp.exportClients()">
+          <i class="fa fa-download"></i> Export CSV
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="AdminApp.openAutoAssignModal()">
+          <i class="fa fa-magic"></i> Auto-Assign Bots
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="AdminApp.openCreateClientModal()" id="btn-create-client" style="background:linear-gradient(135deg,#10b981,#059669);">
+          <i class="fa fa-user-plus"></i> ➕ Create Client
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <i class="fa fa-search search-icon"></i>
+        <input type="text" class="search-input" id="clients-search" placeholder="Search by Unique ID (#EH-CL-1001), name, email, city…" oninput="AdminApp.debouncedLoadClients()" />
+      </div>
+      <select class="filter-select" id="clients-paid-filter" onchange="AdminApp.loadClients()">
+        <option value="ALL">All Plans</option>
+        <option value="paid">Paid Only</option>
+        <option value="free">Free Only</option>
+      </select>
+      <select class="filter-select" id="clients-city-filter" onchange="AdminApp.loadClients()">
+        <option value="ALL">All Cities</option>
+        <option value="Delhi">Delhi</option>
+        <option value="Mumbai">Mumbai</option>
+        <option value="Bengaluru">Bengaluru</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Pune">Pune</option>
+        <option value="Jaipur">Jaipur</option>
+        <option value="Chandigarh">Chandigarh</option>
+        <option value="Kochi">Kochi</option>
+        <option value="Chennai">Chennai</option>
+        <option value="Ahmedabad">Ahmedabad</option>
+        <option value="Surat">Surat</option>
+      </select>
+      <select class="filter-select" id="clients-plan-filter" onchange="AdminApp.loadClients()">
+        <option value="ALL">All Tiers</option>
+        <option value="PREMIUM">Premium</option>
+        <option value="PRO">Pro</option>
+        <option value="BASIC">Basic</option>
+        <option value="FREE">Free</option>
+      </select>
+    </div>
+
+    <!-- Clients Table -->
+    <div class="table-wrap">
+      <table class="data-table" id="clients-table">
+        <thead>
+          <tr>
+            <th>Client (Unique ID)</th>
+            <th>Location</th>
+            <th>Plan</th>
+            <th>Followers</th>
+            <th>Following</th>
+            <th>Assigned Bots</th>
+            <th>Chats</th>
+            <th>Status</th>
+            <th>Joined</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="clients-tbody">
+          <tr><td colspan="10" class="loading-overlay"><div class="spinner"></div> Loading clients…</td></tr>
+        </tbody>
+      </table>
+      <div class="pagination" id="clients-pagination" style="display:none;">
+        <span id="clients-page-info">Showing 1-15 of 15</span>
+        <div class="pagination-btns" id="clients-page-btns"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- TAB 5: FAKE PROFILES                                    -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-fake-profiles">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Fake Profile Manager & Visibility Control</div>
+        <div class="metric-pills-wrap" style="margin-top:6px;">
+          <span class="metric-pill purple" id="fp-pill-stat-total">👥 15 Total</span>
+          <span class="metric-pill green" id="fp-pill-stat-active">🟢 60 Active</span>
+          <span class="metric-pill cyan" id="fp-pill-stat-visible">👁️ 60 Visible in Feed</span>
+          <span class="metric-pill amber" id="fp-pill-stat-pending">⏳ 0 Pending Requests</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div class="search-wrap" style="width:220px;">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" class="search-input" id="fp-search-input" placeholder="Search profiles by name, city…" oninput="AdminApp.filterFakeProfilesGrid()" />
+        </div>
+        <select class="filter-select" id="fp-city-filter" onchange="AdminApp.loadFakeProfiles()">
+          <option value="ALL">All Cities</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Bengaluru">Bengaluru</option>
+          <option value="Gurgaon">Gurgaon</option>
+          <option value="Hyderabad">Hyderabad</option>
+          <option value="Pune">Pune</option>
+          <option value="Chennai">Chennai</option>
+          <option value="Kolkata">Kolkata</option>
+          <option value="Jaipur">Jaipur</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="AdminApp.openAddFakeProfileModal()" style="background:linear-gradient(135deg,#7c5cfc,#22d3ee);box-shadow:0 4px 16px rgba(124,92,252,0.35);">
+          <i class="fa fa-plus"></i> Add Profile
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Pills Bar -->
+    <div class="filter-pills-bar">
+      <div class="filter-pill active" onclick="AdminApp.setProfileFilterPill('ALL')" id="fp-pill-all">⚡ All Profiles</div>
+      <div class="filter-pill" onclick="AdminApp.setProfileFilterPill('VISIBLE')" id="fp-pill-visible">👁️ Visible in Discovery</div>
+      <div class="filter-pill" onclick="AdminApp.setProfileFilterPill('HIDDEN')" id="fp-pill-hidden">🙈 Hidden from Feed</div>
+      <div class="filter-pill" onclick="AdminApp.setProfileFilterPill('ACTIVE')" id="fp-pill-active">🟢 Active</div>
+      <div class="filter-pill" onclick="AdminApp.setProfileFilterPill('PAUSED')" id="fp-pill-paused">⏸️ Paused</div>
+      <div class="filter-pill" onclick="AdminApp.setProfileFilterPill('FEATURED')" id="fp-pill-featured">⭐ Featured</div>
+      <div class="filter-pill" onclick="AdminApp.setProfileFilterPill('NOPIC')" id="fp-pill-nopic">🚫 No Pic</div>
+    </div>
+
+    <!-- Bulk Actions Control Toolbar -->
+    <div class="bulk-toolbar" id="fp-bulk-toolbar" style="display:flex;">
+      <div class="bulk-title">
+        <input type="checkbox" id="fp-select-all" onchange="AdminApp.toggleSelectAllProfiles(this.checked)" style="width:16px;height:16px;cursor:pointer;" />
+        <span>Select All (<span id="fp-selected-count">0</span> selected)</span>
+      </div>
+      <div class="bulk-actions-group">
+        <button class="btn btn-sm btn-secondary" onclick="AdminApp.executeBulkAction('SHOW_DISCOVERY')" title="Make selected visible in discovery feed">
+          👁️ Bulk Show
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="AdminApp.executeBulkAction('HIDE_DISCOVERY')" title="Hide selected from discovery feed">
+          🙈 Bulk Hide
+        </button>
+        <button class="btn btn-sm btn-success" onclick="AdminApp.executeBulkAction('ACTIVATE')">
+          ▶️ Bulk Activate
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="AdminApp.executeBulkAction('PAUSE')" style="color:#f59e0b;border-color:rgba(245,158,11,0.3);">
+          ⏸️ Bulk Pause
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="AdminApp.executeBulkAction('DELETE')">
+          🗑️ Bulk Delete
+        </button>
+      </div>
+    </div>
+
+    <!-- Collapsible City & Area Rule Control Panel -->
+    <div class="city-control-center-wrapper" id="city-control-center-wrapper">
+      <div class="city-control-center-header" onclick="AdminApp.toggleCityCenter()">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:14px;font-weight:700;color:#f0f4ff;display:flex;align-items:center;gap:8px;">
+            <span>🏙️ CITY & AREA PROFILE CONTROL CENTER</span>
+            <span id="city-summary-badge" style="font-size:11px;background:rgba(124,92,252,0.2);color:#a78bfa;padding:3px 10px;border-radius:20px;font-weight:600;">12 Cities Managed</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;gap:6px;align-items:center;" onclick="event.stopPropagation()">
+            <button onclick="AdminApp.filterCityView('ALL')" id="city-btn-all" class="btn btn-sm btn-primary" style="font-size:11px;padding:5px 10px;">All Cities (12)</button>
+            <button onclick="AdminApp.filterCityView('ACTIVE')" id="city-btn-active" class="btn btn-sm btn-secondary" style="font-size:11px;padding:5px 10px;">With Profiles (4)</button>
+            <button onclick="AdminApp.filterCityView('EMPTY')" id="city-btn-empty" class="btn btn-sm btn-secondary" style="font-size:11px;padding:5px 10px;">Pending (8)</button>
+          </div>
+          <button class="btn btn-sm btn-secondary" id="btn-toggle-city-center" style="font-size:11px;padding:4px 10px;">
+            <i class="fa fa-chevron-up"></i> <span id="toggle-city-center-text">Collapse</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="city-control-center-body" id="city-control-center-body">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:14px;">Set profile display capacity per city, toggle visibility in app feeds, or auto-seed 15 profiles with 1 click.</div>
+        <!-- City Cards Container -->
+        <div id="area-config-strip" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:12px;">
+          <div class="loading-overlay"><div class="spinner"></div> Loading city rules...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Cards Grid -->
+    <div id="fake-profiles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;">
+      <div class="loading-overlay"><div class="spinner"></div> Loading profiles…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- TAB 6: MEETING REQUESTS (Main Control Panel)           -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-meeting-requests">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Meeting Request Control Panel</div>
+        <div class="section-count" id="mr-count-label">Admin controls: Accept / Reject / Hold each request</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <select class="filter-select" id="mr-status-filter" onchange="AdminApp.loadMeetingRequests()">
+          <option value="ALL">All Requests</option>
+          <option value="PENDING" selected>Pending</option>
+          <option value="ACCEPTED">Accepted</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="ON_HOLD">On Hold</option>
+        </select>
+        <select class="filter-select" id="mr-city-filter" onchange="AdminApp.loadMeetingRequests()">
+          <option value="ALL">All Cities</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Bengaluru">Bengaluru</option>
+          <option value="Gurgaon">Gurgaon</option>
+          <option value="Hyderabad">Hyderabad</option>
+          <option value="Pune">Pune</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="AdminApp.loadMeetingRequests()">
+          <i class="fa fa-rotate-right"></i> Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:140px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:14px 18px;">
+        <div style="font-size:11px;color:#ef4444;font-weight:600;">PENDING</div>
+        <div style="font-size:28px;font-weight:700;color:#f0f4ff;" id="mr-stat-pending">—</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:14px 18px;">
+        <div style="font-size:11px;color:#10b981;font-weight:600;">ACCEPTED</div>
+        <div style="font-size:28px;font-weight:700;color:#f0f4ff;" id="mr-stat-accepted">—</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:14px 18px;">
+        <div style="font-size:11px;color:#f87171;font-weight:600;">REJECTED</div>
+        <div style="font-size:28px;font-weight:700;color:#f0f4ff;" id="mr-stat-rejected">—</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 18px;">
+        <div style="font-size:11px;color:#f59e0b;font-weight:600;">ON HOLD</div>
+        <div style="font-size:28px;font-weight:700;color:#f0f4ff;" id="mr-stat-hold">—</div>
+      </div>
+    </div>
+
+    <!-- Requests List -->
+    <div id="meeting-requests-list">
+      <div class="loading-overlay"><div class="spinner"></div> Loading requests…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- TAB 7: TOP ACTIVITY USER                               -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-top-activity">
+    <div class="section-header">
+      <div>
+        <div class="section-title">🏆 Top Activity Leaderboard Control</div>
+        <div class="section-count">Manage the top earning users displayed on the customer app leaderboard</div>
+      </div>
+      <button class="btn btn-primary" onclick="AdminApp.updateTopActivityUser()" style="background:linear-gradient(135deg,#7c5cfc,#22d3ee);box-shadow:0 4px 16px rgba(124,92,252,0.35);">
+        <i class="fa fa-save"></i> Save Leaderboard Changes
+      </button>
+    </div>
+    
+    <div style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:24px;margin-bottom:20px;max-width:850px;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div id="top-activity-users-list" style="display:flex;flex-direction:column;gap:14px;">
+          <!-- Populated dynamically via JS -->
+        </div>
+        
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+          <button class="btn btn-primary btn-lg" onclick="AdminApp.updateTopActivityUser()" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 16px rgba(16,185,129,0.35);padding:12px 24px;">
+            <i class="fa fa-save"></i> Save Leaderboard Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- TAB 8: PROVIDER PROFILE                                -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-provider-profile">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Provider Profile Control</div>
+        <div class="section-count">Manage the main provider profile shown in the app</div>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;margin-bottom:20px;max-width:800px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Display Name</label>
+          <input type="text" id="pp-displayName" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Title</label>
+          <input type="text" id="pp-title" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Category</label>
+          <input type="text" id="pp-category" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Location</label>
+          <input type="text" id="pp-location" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Hourly Rate (₹)</label>
+          <input type="number" id="pp-hourlyRate" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Rating</label>
+          <input type="number" step="0.1" id="pp-rating" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Reviews Count</label>
+          <input type="number" id="pp-reviewsCount" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Skills (comma-separated)</label>
+          <input type="text" id="pp-skills" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div style="grid-column: span 2;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Avatar URL</label>
+          <input type="text" id="pp-avatar" class="search-input" style="width:100%;padding-left:14px;background:rgba(255,255,255,0.05);" />
+        </div>
+        <div style="grid-column: span 2;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;">Bio</label>
+          <textarea id="pp-bio" class="search-input" style="width:100%;height:80px;padding:14px;background:rgba(255,255,255,0.05);resize:vertical;"></textarea>
+        </div>
+        <div style="grid-column: span 2; display:flex; justify-content:flex-end;">
+          <button class="btn btn-primary" onclick="AdminApp.updateProviderProfile()">
+            <i class="fa fa-save"></i> Save Profile
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- TAB 8: APP CONFIG                                   -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-app-config">
+    <div class="section-header">
+      <div>
+        <div class="section-title">App Configuration</div>
+        <div class="section-count">Manage global platform settings</div>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;max-width:800px;">
+      
+      <div style="display:flex; flex-direction:column; gap:24px;">
+        
+        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:16px;">
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#f0f4ff;margin-bottom:4px;">Profile View Boost Mode</div>
+            <div style="font-size:12px;color:#8b96b4;">Accelerates the daily profile view growth rate from ~2.5% to ~11% (approx 10-12%).</div>
+          </div>
+          <select id="config-profile-boost" class="search-input" style="width:140px;padding:10px 14px;background:rgba(255,255,255,0.05);border-radius:8px;color:#f0f4ff;border:1px solid rgba(255,255,255,0.1);font-family:inherit;">
+            <option value="false">Off (2.5%)</option>
+            <option value="true">On (10-12%)</option>
+          </select>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn btn-primary" onclick="AdminApp.saveAppConfig()">
+            <i class="fa fa-save"></i> Save Settings
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODALS                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+
+<!-- Client Detail Modal -->
+<div class="modal-overlay" id="modal-client-detail">
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-client-title">Client Details</div>
+      <button class="modal-close" onclick="AdminApp.closeModal('modal-client-detail')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-client-body">
+      <div class="loading-overlay"><div class="spinner"></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="modal-assign-bots-btn" onclick="AdminApp.openBotAssignModal()">
+        <i class="fa fa-robot"></i> Assign Bots
+      </button>
+      <button class="btn btn-secondary" onclick="AdminApp.closeModal('modal-client-detail')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Create Client Modal -->
+<div class="modal-overlay" id="modal-create-client">
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">➕ Create Client Account</div>
+      <button class="modal-close" onclick="AdminApp.closeModal('modal-create-client')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="create-client-error" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#ef4444;"></div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">FULL NAME *</label>
+          <input type="text" id="cc-name" placeholder="e.g. Rahul Sharma" class="search-input" style="width:100%;padding-left:14px;" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">EMAIL ADDRESS *</label>
+          <input type="email" id="cc-email" placeholder="e.g. rahul@example.com" class="search-input" style="width:100%;padding-left:14px;" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">PHONE NUMBER *</label>
+          <input type="tel" id="cc-phone" placeholder="e.g. +91 98765 43210" class="search-input" style="width:100%;padding-left:14px;" />
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">CITY *</label>
+          <select id="cc-city" class="filter-select" style="width:100%;">
+            <option value="Delhi">Delhi</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Bengaluru">Bengaluru</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Pune">Pune</option>
+            <option value="Jaipur">Jaipur</option>
+            <option value="Chandigarh">Chandigarh</option>
+            <option value="Kochi">Kochi</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Ahmedabad">Ahmedabad</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">PLAN TIER</label>
+          <select id="cc-plan" class="filter-select" style="width:100%;">
+            <option value="FREE">Free</option>
+            <option value="BASIC">Basic</option>
+            <option value="PRO">Pro</option>
+            <option value="PREMIUM">Premium</option>
+          </select>
+        </div>
+        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px;font-size:12px;color:#10b981;">
+          <i class="fa fa-key"></i> Password will be <strong>auto-generated</strong> (e.g. EH@Ab3xYz). You can copy & share with the client.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="AdminApp.createClient()" id="btn-create-client-submit" style="background:linear-gradient(135deg,#10b981,#059669);">
+        <i class="fa fa-user-plus"></i> Create & Generate Credentials
+      </button>
+      <button class="btn btn-secondary" onclick="AdminApp.closeModal('modal-create-client')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Credentials Display Modal -->
+<div class="modal-overlay" id="modal-credentials">
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Client Credentials Ready</div>
+      <button class="modal-close" onclick="AdminApp.closeModal('modal-credentials')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:20px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:12px;letter-spacing:0.5px;">✅ ACCOUNT CREATED SUCCESSFULLY</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">Client Name</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:16px;" id="cred-name">—</div>
+
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">🪪 Client Login ID</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="background:var(--surface-muted);border:1px solid var(--surface-border);border-radius:8px;padding:10px 16px;font-size:18px;font-weight:800;color:var(--accent-cyan);letter-spacing:1px;flex:1;" id="cred-id">—</div>
+          <button class="btn btn-secondary btn-sm" onclick="AdminApp.copyCredential('cred-id')" title="Copy ID"><i class="fa fa-copy"></i></button>
+        </div>
+
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">🔒 Password</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="background:var(--surface-muted);border:1px solid var(--surface-border);border-radius:8px;padding:10px 16px;font-size:18px;font-weight:800;color:#f59e0b;letter-spacing:2px;flex:1;" id="cred-password">—</div>
+          <button class="btn btn-secondary btn-sm" onclick="AdminApp.copyCredential('cred-password')" title="Copy Password"><i class="fa fa-copy"></i></button>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg,#7c5cfc,#22d3ee);" onclick="AdminApp.copyAllCredentials()">
+          <i class="fa fa-copy"></i> Copy Both ID + Password
+        </button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);text-align:center;">
+        ⚠️ Share these credentials with the client. Password cannot be recovered later.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="AdminApp.closeModal('modal-credentials')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Bots Modal -->
+<div class="modal-overlay" id="modal-assign-bots">
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-assign-bots-title">🤖 Assign Fake Profiles</div>
+      <button class="modal-close" onclick="AdminApp.closeModal('modal-assign-bots')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div style="font-size:13px; color:var(--text-secondary);" id="assign-bots-subtitle">Select profiles to assign to the client.</div>
+        <div class="search-wrap" style="width:250px;">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" class="search-input" id="assign-bots-search" placeholder="Search profiles..." oninput="AdminApp.filterAssignBotsList()" />
+        </div>
+      </div>
+      
+      <div style="display:flex; gap:16px; margin-bottom:16px;">
+        <div style="flex:1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:12px;">AVAILABLE PROFILES (<span id="avail-bots-count">0</span>)</div>
+          <div id="assign-bots-available-list" style="height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+            <div class="loading-overlay"><div class="spinner"></div></div>
+          </div>
+        </div>
+        
+        <div style="flex:1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="font-size:12px; font-weight:600; color:var(--accent-cyan); margin-bottom:12px;">ASSIGNED PROFILES (<span id="assigned-bots-count">0</span>)</div>
+          <div id="assign-bots-assigned-list" style="height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+            <div class="loading-overlay"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="AdminApp.saveBotAssignments()" id="btn-save-assignments">
+        <i class="fa fa-save"></i> Save Assignments
+      </button>
+      <button class="btn btn-secondary" onclick="AdminApp.closeModal('modal-assign-bots')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- ── JavaScript ── -->
+<script src="admin.js?v=3"></script>
+</body>
+</html>

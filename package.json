@@ -1,0 +1,26 @@
+{
+  "name": "littlefun-v2",
+  "version": "2.0.0",
+  "description": "LittleFun V2 — Location-based social connection platform",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "apps/customer",
+    "apps/admin"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:customer": "npm run dev --workspace=apps/customer",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev": "concurrently \"npm:dev:backend\" \"npm:dev:customer\" \"npm:dev:admin\"",
+    "build": "npm run build --workspaces",
+    "build:unified": "npm run build --workspaces && node scripts/bundle_unified_dist.js",
+    "test": "npm run test --workspaces --if-present",
+    "migrate": "npm run migrate --workspace=backend",
+    "deploy:hosting": "npm run build:unified && firebase deploy --only hosting"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4",
+    "date-fns": "^4.4.0"
+  }
+}

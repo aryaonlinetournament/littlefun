@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: littlefun-backend
+    env: node
+    rootDir: backend
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FIREBASE_PROJECT_ID
+        value: littlefunwithpartner
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPER_ADMIN_UID
+        value: FkCSTRi6JBSfBf2haCnj8yCoOiC2
+      - key: SUPER_ADMIN_EMAIL
+        value: aryaonlinetournament@gmail.com
+      - key: ALLOWED_ORIGINS
+        value: https://littlefunwithpartner.web.app,http://localhost:5173,http://localhost:5174
