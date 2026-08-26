@@ -34,7 +34,7 @@ app.use(helmet());
 const allowedOrigins = config.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
 app.use(
   cors({
-    origin: (origin, cb) => {
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, etc.) or any localhost port or configured origins
       if (!origin || allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {
         cb(null, true);
