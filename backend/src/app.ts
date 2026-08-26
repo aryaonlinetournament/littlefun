@@ -80,7 +80,18 @@ app.use('/api/auth/', authLimiter);
 import { achieversRouter, adminAchieversRouter } from './modules/achievers/routes';
 import { dummyProfilesRouter, adminDummyProfilesRouter } from './modules/dummyProfiles/routes';
 
-// ── Health check ──────────────────────────────────────────────────
+// ── Root & Health check ───────────────────────────────────────────
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'LittleFun V2 API',
+    status: 'online',
+    version: '2.0.0',
+    appUrl: 'https://littlefunwithpartner.web.app',
+    adminUrl: 'https://littlefunwithpartner.web.app/admin',
+    health: '/health',
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: '2.0.0', env: config.NODE_ENV });
 });
