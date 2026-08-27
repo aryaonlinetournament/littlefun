@@ -210,35 +210,62 @@ export default function ProfilePage() {
     );
   }
 
+  const [showIdModal, setShowIdModal] = useState(false);
+
   return (
     <div className="page">
       {/* Top Header with LittleFun Brand Logo, Notifications, and Chat */}
       <Header />
 
-      <div className="page-header" style={{ paddingTop: 6, paddingBottom: 6 }}>
-        <span className="page-title">My Profile</span>
-        {!editing && (
-          <button className="btn btn-outline btn-sm" onClick={startEdit}>✏️ Edit Profile</button>
-        )}
-      </div>
+      <div className="page-content" style={{ paddingTop: 'var(--space-sm)' }}>
 
-      <div className="page-content">
+        {/* ── UPPER PROFILE HERO CARD (All-in-one Luxury Widget) ── */}
+        <div
+          style={{
+            background: 'var(--color-surface, #ffffff)',
+            borderRadius: 'var(--radius-xl, 24px)',
+            border: '1.5px solid var(--color-border, #E8E0F0)',
+            boxShadow: 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))',
+            padding: '24px 20px 20px',
+            marginBottom: 'var(--space-md)',
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Subtle Pink Glow Accent */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 70,
+              background: 'linear-gradient(180deg, rgba(232, 90, 143, 0.12) 0%, rgba(255, 255, 255, 0) 100%)',
+              pointerEvents: 'none',
+            }}
+          />
 
-        {/* ── Avatar + Identity ────────────────────────────── */}
-        <div style={{ textAlign: 'center', padding: 'var(--space-md) 0 var(--space-sm)' }}>
+          {/* Avatar with Camera Overlay & Online Indicator */}
           <div
             onClick={handleAvatarClick}
             onMouseEnter={() => setAvatarHover(true)}
             onMouseLeave={() => setAvatarHover(false)}
             style={{
-              width: 100, height: 100, borderRadius: '50%',
-              margin: '0 auto var(--space-sm)',
-              position: 'relative', cursor: 'pointer',
-              boxShadow: 'var(--shadow-lg)',
-              border: '3px solid var(--color-primary-light)',
+              width: 96,
+              height: 96,
+              borderRadius: '50%',
+              margin: '0 auto 12px',
+              position: 'relative',
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(200, 56, 109, 0.22)',
+              border: '3px solid var(--color-primary-light, #E85A8F)',
               overflow: 'hidden',
-              background: primaryPhoto ? 'transparent' : 'var(--gradient-warm)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: primaryPhoto ? 'transparent' : 'var(--gradient-warm, linear-gradient(135deg, #FF8FAB, #C8386D, #9E2855))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1,
             }}
             title={isVerified ? 'Click to change photo' : 'Verify to upload photo'}
           >
@@ -255,23 +282,41 @@ export default function ProfilePage() {
             )}
 
             {/* Camera overlay */}
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: (avatarHover || uploadingPhoto) ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.2s',
-            }}>
-              {uploadingPhoto
-                ? <div className="spinner" style={{ width: 26, height: 26, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
-                : (avatarHover && <span style={{ fontSize: '1.6rem' }}>📸</span>)
-              }
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: (avatarHover || uploadingPhoto) ? 'rgba(0,0,0,0.48)' : 'rgba(0,0,0,0)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s',
+              }}
+            >
+              {uploadingPhoto ? (
+                <div
+                  className="spinner"
+                  style={{ width: 26, height: 26, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }}
+                />
+              ) : (
+                avatarHover && <span style={{ fontSize: '1.6rem' }}>📸</span>
+              )}
             </div>
 
             {/* Online dot */}
-            <div style={{
-              position: 'absolute', bottom: 4, right: 4, width: 16, height: 16,
-              background: '#22C55E', border: '2.5px solid white', borderRadius: '50%', zIndex: 2,
-            }} />
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 4,
+                right: 4,
+                width: 16,
+                height: 16,
+                background: '#22C55E',
+                border: '2.5px solid white',
+                borderRadius: '50%',
+                zIndex: 2,
+              }}
+            />
           </div>
 
           {/* Hidden file input */}
@@ -289,36 +334,161 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '1.35rem', fontWeight: 700 }}>
+          {/* Name & ID */}
+          <div
+            style={{
+              fontFamily: 'Playfair Display, serif',
+              fontSize: '1.38rem',
+              fontWeight: 700,
+              color: 'var(--color-text, #1A1228)',
+            }}
+          >
             {userDisplayName}
           </div>
-          {uniqueId && (
-            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-3)', marginTop: 2 }}>{uniqueId}</div>
-          )}
+
+          <div
+            style={{
+              fontSize: '0.8rem',
+              color: 'var(--color-text-3, #9B8FB0)',
+              marginTop: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <span style={{ fontWeight: 600, color: 'var(--color-text-2, #5A4E70)' }}>
+              {uniqueId || (profile?.unique_id as string) || '#LF-88201'}
+            </span>
+            <span>•</span>
+            <span>📍 {(profile?.city as string) || 'Mumbai, IN'}</span>
+          </div>
 
           {/* Badges */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 8,
+              marginTop: 12,
+              marginBottom: 18,
+              flexWrap: 'wrap',
+            }}
+          >
             {isVerified ? (
-              <span style={{ background: '#D5F5E3', color: '#1E8449', borderRadius: 99, padding: '3px 12px', fontSize: '0.73rem', fontWeight: 700 }}>
-                ✓ Verified Companion
+              <span
+                style={{
+                  background: '#D5F5E3',
+                  color: '#1E8449',
+                  borderRadius: 99,
+                  padding: '4px 12px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                ✓ Verified Member
               </span>
             ) : verificationStatus === 'PENDING' ? (
-              <span style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 99, padding: '3px 12px', fontSize: '0.73rem', fontWeight: 700 }}>
-                ⏳ Verification Pending (Admin Review)
+              <span
+                style={{
+                  background: '#FEF3C7',
+                  color: '#92400E',
+                  borderRadius: 99,
+                  padding: '4px 12px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                }}
+              >
+                ⏳ Verification Pending
               </span>
             ) : (
-              <span onClick={() => setVerifyModal(true)}
-                style={{ background: '#FEE2E2', color: '#991B1B', borderRadius: 99, padding: '3px 12px', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer' }}>
+              <span
+                onClick={() => setVerifyModal(true)}
+                style={{
+                  background: '#FEE2E2',
+                  color: '#991B1B',
+                  borderRadius: 99,
+                  padding: '4px 12px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
                 ⚠️ Not Verified – Tap to verify
               </span>
             )}
-            <span style={{ background: '#E0E7FF', color: '#3730A3', borderRadius: 99, padding: '3px 12px', fontSize: '0.73rem', fontWeight: 700 }}>
+            <span
+              style={{
+                background: '#E0E7FF',
+                color: '#3730A3',
+                borderRadius: 99,
+                padding: '4px 12px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+              }}
+            >
               ⚡ Executive Provider
             </span>
           </div>
+
+          {/* ── UPPER QUICK ACTIONS (Edit Profile & Digital ID Pass) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button
+              type="button"
+              onClick={startEdit}
+              style={{
+                background: 'var(--color-surface-2, #F8F8FC)',
+                color: 'var(--color-text, #1A1228)',
+                border: '1.5px solid var(--color-border, #E8E0F0)',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md, 14px)',
+                fontSize: '0.86rem',
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>✏️</span>
+              <span>Edit Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowIdModal(true)}
+              style={{
+                background: 'var(--gradient-primary, linear-gradient(135deg, #C8386D, #E85A8F))',
+                color: '#ffffff',
+                border: 'none',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md, 14px)',
+                fontSize: '0.86rem',
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                boxShadow: 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.25))',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span>🪪</span>
+              <span>View ID Pass</span>
+            </button>
+          </div>
         </div>
 
-        {/* ── Digital Member ID Pass & QR ─────────────────── */}
+        {/* ── Digital Member ID Modal Pass & QR (Triggered from Top Bar) ── */}
         <DigitalIdCard
           displayName={userDisplayName}
           photoUrl={primaryPhoto?.url}
@@ -331,6 +501,9 @@ export default function ProfilePage() {
           phone={userPhone}
           memberSince={profile?.created_at ? new Date(profile.created_at as string).getFullYear().toString() : '2026'}
           onEdit={startEdit}
+          isOpen={showIdModal}
+          onOpenChange={setShowIdModal}
+          hideTriggerBar={true}
         />
 
         {/* ── Profile Completion ───────────────────────────── */}

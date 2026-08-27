@@ -12,6 +12,9 @@ interface DigitalIdCardProps {
   phone?: string;
   memberSince?: string;
   onEdit?: () => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTriggerBar?: boolean;
 }
 
 export default function DigitalIdCard({
@@ -24,8 +27,16 @@ export default function DigitalIdCard({
   isVerified = false,
   memberSince = '2026',
   onEdit,
+  isOpen: externalIsOpen,
+  onOpenChange,
+  hideTriggerBar = false,
 }: DigitalIdCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = (val: boolean) => {
+    if (onOpenChange) onOpenChange(val);
+    setInternalIsOpen(val);
+  };
   const [activeTab, setActiveTab] = useState<'card' | 'qr'>('card');
   const [copied, setCopied] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -84,125 +95,127 @@ export default function DigitalIdCard({
   return (
     <>
       {/* ── PROFILE TRIGGER BAR (Theme-Aware LittleFun Design) ──────── */}
-      <div
-        onClick={() => setIsOpen(true)}
-        style={{
-          margin: 'var(--space-md) 0',
-          padding: '16px 18px',
-          borderRadius: 'var(--radius-lg, 20px)',
-          background: 'var(--color-surface, #ffffff)',
-          border: isVerified
-            ? '1.5px solid var(--color-primary-light, #E85A8F)'
-            : '1.5px solid var(--color-border, #E8E0F0)',
-          boxShadow: 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          transition: 'all var(--transition-normal, 250ms ease)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.14))';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))';
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-          {/* Avatar / Icon Chip */}
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 'var(--radius-md, 12px)',
-              background: 'var(--gradient-warm, linear-gradient(135deg, #FF8FAB, #C8386D, #9E2855))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.5rem',
-              boxShadow: 'var(--shadow-sm, 0 2px 8px rgba(200, 56, 109, 0.15))',
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '2px solid #ffffff',
-            }}
-          >
-            {photoUrl ? (
-              <img src={photoUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              '🪪'
-            )}
-          </div>
-
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span
-                style={{
-                  fontFamily: 'Playfair Display, serif',
-                  fontWeight: 700,
-                  fontSize: '1.05rem',
-                  color: 'var(--color-text, #1A1228)',
-                }}
-              >
-                Digital Identity Pass
-              </span>
-              <span
-                style={{
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-full, 9999px)',
-                  background: isVerified ? 'var(--color-primary-bg, #FFF0F5)' : 'var(--color-surface-3, #F0F0F8)',
-                  color: isVerified ? 'var(--color-primary, #C8386D)' : 'var(--color-text-2, #5A4E70)',
-                  border: isVerified
-                    ? '1px solid var(--color-primary-light, #E85A8F)'
-                    : '1px solid var(--color-border, #E8E0F0)',
-                }}
-              >
-                {isVerified ? '✓ VERIFIED' : 'ACTIVE'}
-              </span>
-            </div>
-            <div
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '0.78rem',
-                color: 'var(--color-text-3, #9B8FB0)',
-                marginTop: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span style={{ fontWeight: 600, color: 'var(--color-text-2, #5A4E70)' }}>{uniqueId}</span>
-              <span>•</span>
-              <span>Tap to view pass & QR</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button */}
+      {!hideTriggerBar && (
         <div
+          onClick={() => setIsOpen(true)}
           style={{
-            background: 'var(--gradient-primary, linear-gradient(135deg, #C8386D, #E85A8F))',
-            color: '#ffffff',
-            padding: '9px 16px',
-            borderRadius: 'var(--radius-md, 12px)',
-            fontSize: '0.82rem',
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 700,
+            margin: 'var(--space-md) 0',
+            padding: '16px 18px',
+            borderRadius: 'var(--radius-lg, 20px)',
+            background: 'var(--color-surface, #ffffff)',
+            border: isVerified
+              ? '1.5px solid var(--color-primary-light, #E85A8F)'
+              : '1.5px solid var(--color-border, #E8E0F0)',
+            boxShadow: 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))',
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
-            boxShadow: 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.2))',
-            flexShrink: 0,
+            justifyContent: 'space-between',
+            transition: 'all var(--transition-normal, 250ms ease)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.14))';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))';
           }}
         >
-          <span>View Card</span>
-          <span>➔</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            {/* Avatar / Icon Chip */}
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 'var(--radius-md, 12px)',
+                background: 'var(--gradient-warm, linear-gradient(135deg, #FF8FAB, #C8386D, #9E2855))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                boxShadow: 'var(--shadow-sm, 0 2px 8px rgba(200, 56, 109, 0.15))',
+                overflow: 'hidden',
+                flexShrink: 0,
+                border: '2px solid #ffffff',
+              }}
+            >
+              {photoUrl ? (
+                <img src={photoUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                '🪪'
+              )}
+            </div>
+
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    fontFamily: 'Playfair Display, serif',
+                    fontWeight: 700,
+                    fontSize: '1.05rem',
+                    color: 'var(--color-text, #1A1228)',
+                  }}
+                >
+                  Digital Identity Pass
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full, 9999px)',
+                    background: isVerified ? 'var(--color-primary-bg, #FFF0F5)' : 'var(--color-surface-3, #F0F0F8)',
+                    color: isVerified ? 'var(--color-primary, #C8386D)' : 'var(--color-text-2, #5A4E70)',
+                    border: isVerified
+                      ? '1px solid var(--color-primary-light, #E85A8F)'
+                      : '1px solid var(--color-border, #E8E0F0)',
+                  }}
+                >
+                  {isVerified ? '✓ VERIFIED' : 'ACTIVE'}
+                </span>
+              </div>
+              <div
+                style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.78rem',
+                  color: 'var(--color-text-3, #9B8FB0)',
+                  marginTop: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span style={{ fontWeight: 600, color: 'var(--color-text-2, #5A4E70)' }}>{uniqueId}</span>
+                <span>•</span>
+                <span>Tap to view pass & QR</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div
+            style={{
+              background: 'var(--gradient-primary, linear-gradient(135deg, #C8386D, #E85A8F))',
+              color: '#ffffff',
+              padding: '9px 16px',
+              borderRadius: 'var(--radius-md, 12px)',
+              fontSize: '0.82rem',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.2))',
+              flexShrink: 0,
+            }}
+          >
+            <span>View Card</span>
+            <span>➔</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── FLOATING GLASSMORPHIC MODAL (LittleFun Styled) ─────────── */}
       {isOpen && (
