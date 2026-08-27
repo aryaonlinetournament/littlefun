@@ -326,6 +326,7 @@ export default function ProfilePage() {
           email={userEmail}
           phone={userPhone}
           memberSince={profile?.created_at ? new Date(profile.created_at as string).getFullYear().toString() : '2026'}
+          onEdit={startEdit}
         />
 
         {/* ── Profile Completion ───────────────────────────── */}

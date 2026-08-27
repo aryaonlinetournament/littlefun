@@ -11,6 +11,7 @@ interface DigitalIdCardProps {
   email?: string;
   phone?: string;
   memberSince?: string;
+  onEdit?: () => void;
 }
 
 export default function DigitalIdCard({
@@ -22,6 +23,7 @@ export default function DigitalIdCard({
   city = 'Mumbai, IN',
   isVerified = false,
   memberSince = '2026',
+  onEdit,
 }: DigitalIdCardProps) {
   const [activeTab, setActiveTab] = useState<'card' | 'qr'>('card');
   const [copied, setCopied] = useState(false);
@@ -104,6 +106,8 @@ export default function DigitalIdCard({
       {/* ── CARD FRONT ───────────────────────────────────────────── */}
       {activeTab === 'card' ? (
         <div
+          onClick={() => setActiveTab('qr')}
+          title="Click to view Scannable QR Code"
           style={{
             position: 'relative',
             borderRadius: 20,
@@ -117,7 +121,11 @@ export default function DigitalIdCard({
               : '0 12px 30px rgba(0, 0, 0, 0.4)',
             overflow: 'hidden',
             color: '#fff',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
         >
           {/* Holographic Watermark / Accent Glow */}
           <div
@@ -149,21 +157,45 @@ export default function DigitalIdCard({
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '4px 10px',
-                borderRadius: 12,
-                background: isVerified ? 'rgba(232, 90, 143, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                border: isVerified ? '1px solid #E85A8F' : '1px solid rgba(255, 255, 255, 0.15)',
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                color: isVerified ? '#FF8DB3' : '#cbd5e1',
-              }}
-            >
-              <span>{isVerified ? '✓ VERIFIED' : 'ACTIVE'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#fff',
+                    borderRadius: 12,
+                    padding: '3px 8px',
+                    fontSize: '0.68rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✏️ Edit
+                </button>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '4px 10px',
+                  borderRadius: 12,
+                  background: isVerified ? 'rgba(232, 90, 143, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                  border: isVerified ? '1px solid #E85A8F' : '1px solid rgba(255, 255, 255, 0.15)',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  color: isVerified ? '#FF8DB3' : '#cbd5e1',
+                }}
+              >
+                <span>{isVerified ? '✓ VERIFIED' : 'ACTIVE'}</span>
+              </div>
             </div>
           </div>
 
@@ -210,7 +242,10 @@ export default function DigitalIdCard({
 
               {/* ID Tag */}
               <div
-                onClick={copyId}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyId();
+                }}
                 title="Click to copy ID"
                 style={{
                   display: 'inline-flex',
@@ -249,21 +284,37 @@ export default function DigitalIdCard({
               border: '1px solid rgba(255, 255, 255, 0.05)',
             }}
           >
-            <div>
+            <div
+              onClick={(e) => {
+                if (onEdit) {
+                  e.stopPropagation();
+                  onEdit();
+                }
+              }}
+              style={{ cursor: onEdit ? 'pointer' : 'default' }}
+            >
               <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>
                 DOB / Age
               </div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f1f5f9' }}>
-                {age ? `${formattedDob} (${age}y)` : formattedDob}
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: dateOfBirth ? '#f1f5f9' : '#e85a8f' }}>
+                {age ? `${formattedDob} (${age}y)` : (dateOfBirth ? formattedDob : '✏️ Set DOB')}
               </div>
             </div>
 
-            <div>
+            <div
+              onClick={(e) => {
+                if (onEdit) {
+                  e.stopPropagation();
+                  onEdit();
+                }
+              }}
+              style={{ cursor: onEdit ? 'pointer' : 'default' }}
+            >
               <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>
                 Gender
               </div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f1f5f9', textTransform: 'capitalize' }}>
-                {gender || 'Not Set'}
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: gender ? '#f1f5f9' : '#e85a8f', textTransform: 'capitalize' }}>
+                {gender || '✏️ Set Gender'}
               </div>
             </div>
 
@@ -290,21 +341,18 @@ export default function DigitalIdCard({
                 }}
               />
               <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em' }}>
-                NFC / SECURE PASS
+                TAP CARD TO FLIP QR ➔
               </span>
             </div>
 
-            <button
-              onClick={() => setActiveTab('qr')}
+            <div
               style={{
-                border: 'none',
                 background: 'rgba(255,255,255,0.1)',
                 color: '#fff',
                 padding: '4px 10px',
                 borderRadius: 8,
                 fontSize: '0.72rem',
                 fontWeight: 600,
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
@@ -312,7 +360,7 @@ export default function DigitalIdCard({
             >
               <span>Show QR</span>
               <span>➔</span>
-            </button>
+            </div>
           </div>
         </div>
       ) : (
