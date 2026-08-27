@@ -51,7 +51,7 @@ export default function DigitalIdCard({
     })
   );
 
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${qrData}&color=161828&bgcolor=ffffff&margin=6`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${qrData}&color=1A1228&bgcolor=ffffff&margin=6`;
 
   const copyId = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -65,8 +65,8 @@ export default function DigitalIdCard({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${displayName}'s LittleFun ID Pass`,
-          text: `Check out my verified LittleFun profile (${uniqueId})!`,
+          title: `${displayName}'s LittleFun VIP Pass`,
+          text: `Connect with ${displayName} on LittleFun (${uniqueId})!`,
           url: profileUrl,
         });
         setShareSuccess(true);
@@ -83,55 +83,49 @@ export default function DigitalIdCard({
 
   return (
     <>
-      {/* ── PROFILE TRIGGER BUTTON / BAR ─────────────────────────── */}
+      {/* ── PROFILE TRIGGER BAR (Theme-Aware LittleFun Design) ──────── */}
       <div
         onClick={() => setIsOpen(true)}
         style={{
           margin: 'var(--space-md) 0',
-          padding: '14px 18px',
-          borderRadius: 18,
-          background: isVerified
-            ? 'linear-gradient(135deg, rgba(232, 90, 143, 0.15) 0%, rgba(139, 92, 246, 0.18) 100%)'
-            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-          border: isVerified ? '1px solid rgba(232, 90, 143, 0.45)' : '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: isVerified
-            ? '0 8px 24px rgba(232, 90, 143, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
-            : '0 6px 18px rgba(0, 0, 0, 0.25)',
+          padding: '16px 18px',
+          borderRadius: 'var(--radius-lg, 20px)',
+          background: 'var(--color-surface, #ffffff)',
+          border: isVerified
+            ? '1.5px solid var(--color-primary-light, #E85A8F)'
+            : '1.5px solid var(--color-border, #E8E0F0)',
+          boxShadow: 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'all var(--transition-normal, 250ms ease)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
-          e.currentTarget.style.boxShadow = '0 12px 28px rgba(232, 90, 143, 0.3)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.14))';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0) scale(1)';
-          e.currentTarget.style.boxShadow = isVerified
-            ? '0 8px 24px rgba(232, 90, 143, 0.2)'
-            : '0 6px 18px rgba(0, 0, 0, 0.25)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-card, 0 2px 12px rgba(26, 18, 40, 0.06))';
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
           {/* Avatar / Icon Chip */}
           <div
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: isVerified
-                ? 'linear-gradient(135deg, #E85A8F, #8B5CF6)'
-                : 'linear-gradient(135deg, #374151, #1F2937)',
+              width: 48,
+              height: 48,
+              borderRadius: 'var(--radius-md, 12px)',
+              background: 'var(--gradient-warm, linear-gradient(135deg, #FF8FAB, #C8386D, #9E2855))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.4rem',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+              fontSize: '1.5rem',
+              boxShadow: 'var(--shadow-sm, 0 2px 8px rgba(200, 56, 109, 0.15))',
               overflow: 'hidden',
               flexShrink: 0,
-              border: '1.5px solid rgba(255,255,255,0.2)',
+              border: '2px solid #ffffff',
             }}
           >
             {photoUrl ? (
@@ -142,45 +136,66 @@ export default function DigitalIdCard({
           </div>
 
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  fontFamily: 'Playfair Display, serif',
+                  fontWeight: 700,
+                  fontSize: '1.05rem',
+                  color: 'var(--color-text, #1A1228)',
+                }}
+              >
                 Digital Identity Pass
               </span>
               <span
                 style={{
-                  fontSize: '0.65rem',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.68rem',
                   fontWeight: 700,
-                  padding: '2px 7px',
-                  borderRadius: 6,
-                  background: isVerified ? 'rgba(232, 90, 143, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                  color: isVerified ? '#FF9BC0' : '#cbd5e1',
-                  border: isVerified ? '1px solid rgba(232, 90, 143, 0.5)' : '1px solid rgba(255, 255, 255, 0.15)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-full, 9999px)',
+                  background: isVerified ? 'var(--color-primary-bg, #FFF0F5)' : 'var(--color-surface-3, #F0F0F8)',
+                  color: isVerified ? 'var(--color-primary, #C8386D)' : 'var(--color-text-2, #5A4E70)',
+                  border: isVerified
+                    ? '1px solid var(--color-primary-light, #E85A8F)'
+                    : '1px solid var(--color-border, #E8E0F0)',
                 }}
               >
                 {isVerified ? '✓ VERIFIED' : 'ACTIVE'}
               </span>
             </div>
-            <div style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.65)', marginTop: 2, display: 'flex', gap: 6 }}>
-              <span style={{ fontFamily: 'monospace' }}>{uniqueId}</span>
+            <div
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.78rem',
+                color: 'var(--color-text-3, #9B8FB0)',
+                marginTop: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span style={{ fontWeight: 600, color: 'var(--color-text-2, #5A4E70)' }}>{uniqueId}</span>
               <span>•</span>
               <span>Tap to view pass & QR</span>
             </div>
           </div>
         </div>
 
-        {/* Action Button Pill */}
+        {/* Action Button */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #E85A8F 0%, #C8386D 100%)',
-            color: '#fff',
-            padding: '8px 14px',
-            borderRadius: 12,
-            fontSize: '0.78rem',
+            background: 'var(--gradient-primary, linear-gradient(135deg, #C8386D, #E85A8F))',
+            color: '#ffffff',
+            padding: '9px 16px',
+            borderRadius: 'var(--radius-md, 12px)',
+            fontSize: '0.82rem',
+            fontFamily: 'Inter, sans-serif',
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            boxShadow: '0 4px 12px rgba(232, 90, 143, 0.4)',
+            boxShadow: 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.2))',
             flexShrink: 0,
           }}
         >
@@ -189,7 +204,7 @@ export default function DigitalIdCard({
         </div>
       </div>
 
-      {/* ── FLOATING GLASSMORPHIC MODAL WINDOW ───────────────────── */}
+      {/* ── FLOATING GLASSMORPHIC MODAL (LittleFun Styled) ─────────── */}
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
@@ -197,9 +212,9 @@ export default function DigitalIdCard({
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            background: 'rgba(5, 7, 15, 0.82)',
-            backdropFilter: 'blur(14px)',
-            WebkitBackdropFilter: 'blur(14px)',
+            background: 'rgba(26, 18, 40, 0.65)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -212,12 +227,11 @@ export default function DigitalIdCard({
             style={{
               width: '100%',
               maxWidth: 420,
-              background: 'rgba(22, 25, 41, 0.95)',
-              borderRadius: 24,
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.7), 0 0 35px rgba(232, 90, 143, 0.25)',
+              background: '#ffffff',
+              borderRadius: 'var(--radius-xl, 28px)',
+              border: '1px solid var(--color-border, #E8E0F0)',
+              boxShadow: '0 24px 64px rgba(26, 18, 40, 0.25)',
               overflow: 'hidden',
-              animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
               position: 'relative',
             }}
           >
@@ -227,14 +241,22 @@ export default function DigitalIdCard({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '18px 20px 14px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '18px 22px 14px',
+                borderBottom: '1px solid var(--color-border, #E8E0F0)',
+                background: 'var(--color-surface-2, #F8F8FC)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '1.2rem' }}>🪪</span>
-                <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#fff', letterSpacing: '0.02em' }}>
-                  LittleFun Identity Pass
+                <span style={{ fontSize: '1.3rem' }}>🪪</span>
+                <span
+                  style={{
+                    fontFamily: 'Playfair Display, serif',
+                    fontWeight: 700,
+                    fontSize: '1.15rem',
+                    color: 'var(--color-text, #1A1228)',
+                  }}
+                >
+                  Identity Pass
                 </span>
               </div>
 
@@ -243,8 +265,8 @@ export default function DigitalIdCard({
                 <div
                   style={{
                     display: 'flex',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: 20,
+                    background: 'var(--color-surface-3, #F0F0F8)',
+                    borderRadius: 'var(--radius-full, 9999px)',
                     padding: 3,
                     gap: 2,
                   }}
@@ -253,11 +275,12 @@ export default function DigitalIdCard({
                     onClick={() => setActiveTab('card')}
                     style={{
                       border: 'none',
-                      background: activeTab === 'card' ? 'var(--color-primary)' : 'transparent',
-                      color: activeTab === 'card' ? '#fff' : 'rgba(255,255,255,0.6)',
-                      borderRadius: 14,
-                      padding: '4px 10px',
-                      fontSize: '0.72rem',
+                      background: activeTab === 'card' ? 'var(--gradient-primary)' : 'transparent',
+                      color: activeTab === 'card' ? '#ffffff' : 'var(--color-text-2, #5A4E70)',
+                      borderRadius: 'var(--radius-full, 9999px)',
+                      padding: '5px 12px',
+                      fontSize: '0.74rem',
+                      fontFamily: 'Inter, sans-serif',
                       fontWeight: 700,
                       cursor: 'pointer',
                       transition: 'all 0.2s',
@@ -269,11 +292,12 @@ export default function DigitalIdCard({
                     onClick={() => setActiveTab('qr')}
                     style={{
                       border: 'none',
-                      background: activeTab === 'qr' ? 'var(--color-primary)' : 'transparent',
-                      color: activeTab === 'qr' ? '#fff' : 'rgba(255,255,255,0.6)',
-                      borderRadius: 14,
-                      padding: '4px 10px',
-                      fontSize: '0.72rem',
+                      background: activeTab === 'qr' ? 'var(--gradient-primary)' : 'transparent',
+                      color: activeTab === 'qr' ? '#ffffff' : 'var(--color-text-2, #5A4E70)',
+                      borderRadius: 'var(--radius-full, 9999px)',
+                      padding: '5px 12px',
+                      fontSize: '0.74rem',
+                      fontFamily: 'Inter, sans-serif',
                       fontWeight: 700,
                       cursor: 'pointer',
                       transition: 'all 0.2s',
@@ -290,14 +314,16 @@ export default function DigitalIdCard({
                     width: 32,
                     height: 32,
                     borderRadius: '50%',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    color: '#fff',
-                    fontSize: '1rem',
+                    border: '1px solid var(--color-border, #E8E0F0)',
+                    background: '#ffffff',
+                    color: 'var(--color-text-2, #5A4E70)',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
                   ✕
@@ -308,26 +334,20 @@ export default function DigitalIdCard({
             {/* Modal Body */}
             <div style={{ padding: '20px' }}>
               {activeTab === 'card' ? (
-                /* ── ULTRA-PREMIUM HOLOGRAPHIC ID CARD ─────────────── */
+                /* ── LITTLEFUN SIGNATURE AUBERGINE & BERRY VIP PASS CARD ─ */
                 <div
                   style={{
                     position: 'relative',
-                    borderRadius: 22,
+                    borderRadius: 'var(--radius-lg, 20px)',
                     padding: '24px 22px',
-                    background: isVerified
-                      ? 'linear-gradient(145deg, #241442 0%, #3b1d68 45%, #180d30 100%)'
-                      : 'linear-gradient(145deg, #181926 0%, #292c3f 50%, #1e2030 100%)',
-                    border: isVerified
-                      ? '1px solid rgba(232, 90, 143, 0.55)'
-                      : '1px solid rgba(255, 255, 255, 0.15)',
-                    boxShadow: isVerified
-                      ? '0 20px 45px rgba(232, 90, 143, 0.3), 0 0 30px rgba(139, 92, 246, 0.25)'
-                      : '0 16px 36px rgba(0, 0, 0, 0.5)',
+                    background: 'linear-gradient(135deg, #1A1228 0%, #351429 50%, #1A1228 100%)',
+                    border: '1.5px solid var(--color-primary-light, #E85A8F)',
+                    boxShadow: '0 16px 36px rgba(200, 56, 109, 0.28), 0 4px 16px rgba(0, 0, 0, 0.4)',
                     overflow: 'hidden',
-                    color: '#fff',
+                    color: '#ffffff',
                   }}
                 >
-                  {/* Holographic foil shimmer effects */}
+                  {/* Subtle Shimmer Overlay */}
                   <div
                     style={{
                       position: 'absolute',
@@ -336,23 +356,38 @@ export default function DigitalIdCard({
                       width: 180,
                       height: 180,
                       borderRadius: '50%',
-                      background: isVerified
-                        ? 'radial-gradient(circle, rgba(232, 90, 143, 0.4) 0%, transparent 70%)'
-                        : 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)',
+                      background: 'radial-gradient(circle, rgba(232, 90, 143, 0.35) 0%, transparent 70%)',
                       pointerEvents: 'none',
                     }}
                   />
 
-                  {/* Card Brand Header */}
+                  {/* Brand Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: '1.4rem' }}>💛</span>
+                      <span style={{ fontSize: '1.3rem' }}>💛</span>
                       <div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 900, letterSpacing: '0.08em', color: '#fff' }}>
+                        <div
+                          style={{
+                            fontFamily: 'Playfair Display, serif',
+                            fontSize: '1rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.04em',
+                            color: '#ffffff',
+                          }}
+                        >
                           LITTLEFUN
                         </div>
-                        <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                          OFFICIAL VIP MEMBER PASS
+                        <div
+                          style={{
+                            fontFamily: 'Inter, sans-serif',
+                            fontSize: '0.62rem',
+                            color: 'var(--color-accent, #FF8FAB)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.08em',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Official VIP Member Pass
                         </div>
                       </div>
                     </div>
@@ -360,13 +395,13 @@ export default function DigitalIdCard({
                     <div
                       style={{
                         padding: '4px 12px',
-                        borderRadius: 12,
-                        background: isVerified ? 'rgba(232, 90, 143, 0.25)' : 'rgba(255, 255, 255, 0.1)',
-                        border: isVerified ? '1px solid #E85A8F' : '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: 'var(--radius-full, 9999px)',
+                        background: 'rgba(200, 56, 109, 0.3)',
+                        border: '1px solid var(--color-primary-light, #E85A8F)',
                         fontSize: '0.7rem',
+                        fontFamily: 'Inter, sans-serif',
                         fontWeight: 800,
-                        color: isVerified ? '#FF9BC0' : '#e2e8f0',
-                        letterSpacing: '0.05em',
+                        color: '#FF8FAB',
                       }}
                     >
                       {isVerified ? '✓ VERIFIED' : 'ACTIVE'}
@@ -374,47 +409,46 @@ export default function DigitalIdCard({
                   </div>
 
                   {/* Photo & Main Details */}
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20 }}>
-                    {/* High-res Avatar */}
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
                     <div
                       style={{
-                        width: 82,
-                        height: 82,
-                        borderRadius: 20,
-                        border: isVerified ? '2.5px solid #E85A8F' : '2px solid rgba(255,255,255,0.25)',
+                        width: 80,
+                        height: 80,
+                        borderRadius: 'var(--radius-md, 16px)',
+                        border: '2.5px solid var(--color-primary-light, #E85A8F)',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        background: 'rgba(255,255,255,0.06)',
+                        background: 'rgba(255, 255, 255, 0.08)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
                       }}
                     >
                       {photoUrl ? (
                         <img src={photoUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ fontSize: '2.4rem' }}>👤</span>
+                        <span style={{ fontSize: '2.2rem' }}>👤</span>
                       )}
                     </div>
 
-                    {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: '1.25rem',
-                          fontWeight: 800,
+                          fontFamily: 'Playfair Display, serif',
+                          fontSize: '1.28rem',
+                          fontWeight: 700,
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          color: '#fff',
+                          color: '#ffffff',
                           marginBottom: 3,
                         }}
                       >
                         {displayName}
                       </div>
 
-                      {/* ID Tag */}
+                      {/* Unique ID Badge */}
                       <div
                         onClick={copyId}
                         title="Click to copy ID"
@@ -423,21 +457,30 @@ export default function DigitalIdCard({
                           alignItems: 'center',
                           gap: 5,
                           fontSize: '0.74rem',
-                          fontFamily: 'monospace',
-                          color: '#f8fafc',
-                          background: 'rgba(0,0,0,0.35)',
+                          fontFamily: 'Inter, sans-serif',
+                          color: '#ffffff',
+                          background: 'rgba(0, 0, 0, 0.35)',
                           padding: '3px 9px',
-                          borderRadius: 8,
+                          borderRadius: 'var(--radius-sm, 6px)',
                           cursor: 'pointer',
                           marginBottom: 6,
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
                         }}
                       >
-                        <span>{uniqueId}</span>
-                        <span style={{ fontSize: '0.7rem' }}>{copied ? '✓' : '📋'}</span>
+                        <span style={{ fontWeight: 600 }}>{uniqueId}</span>
+                        <span style={{ fontSize: '0.7rem' }}>{copied ? '✓ Copied' : '📋'}</span>
                       </div>
 
-                      <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.78rem',
+                          color: 'var(--color-accent, #FF8FAB)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
                         <span>📍 {city}</span>
                       </div>
                     </div>
@@ -449,10 +492,10 @@ export default function DigitalIdCard({
                       display: 'grid',
                       gridTemplateColumns: 'repeat(3, 1fr)',
                       gap: 8,
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'rgba(0, 0, 0, 0.32)',
                       padding: '12px',
-                      borderRadius: 14,
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: 'var(--radius-md, 12px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
                       marginBottom: 16,
                     }}
                   >
@@ -466,10 +509,26 @@ export default function DigitalIdCard({
                       style={{ cursor: onEdit ? 'pointer' : 'default' }}
                       title="Click to edit Date of Birth"
                     >
-                      <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.62rem',
+                          color: 'var(--color-accent, #FF8FAB)',
+                          textTransform: 'uppercase',
+                          fontWeight: 700,
+                        }}
+                      >
                         DOB / Age
                       </div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: dateOfBirth ? '#fff' : '#FF6584', marginTop: 2 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: dateOfBirth ? '#ffffff' : 'var(--color-primary-light, #E85A8F)',
+                          marginTop: 2,
+                        }}
+                      >
                         {age ? `${formattedDob} (${age}y)` : (dateOfBirth ? formattedDob : '✏️ Set DOB')}
                       </div>
                     </div>
@@ -484,25 +543,58 @@ export default function DigitalIdCard({
                       style={{ cursor: onEdit ? 'pointer' : 'default' }}
                       title="Click to edit Gender"
                     >
-                      <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.62rem',
+                          color: 'var(--color-accent, #FF8FAB)',
+                          textTransform: 'uppercase',
+                          fontWeight: 700,
+                        }}
+                      >
                         Gender
                       </div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: gender ? '#fff' : '#FF6584', textTransform: 'capitalize', marginTop: 2 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: gender ? '#ffffff' : 'var(--color-primary-light, #E85A8F)',
+                          textTransform: 'capitalize',
+                          marginTop: 2,
+                        }}
+                      >
                         {gender || '✏️ Set Gender'}
                       </div>
                     </div>
 
                     <div>
-                      <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.62rem',
+                          color: 'var(--color-accent, #FF8FAB)',
+                          textTransform: 'uppercase',
+                          fontWeight: 700,
+                        }}
+                      >
                         Member Since
                       </div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fff', marginTop: 2 }}>
+                      <div
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: '#ffffff',
+                          marginTop: 2,
+                        }}
+                      >
                         {memberSince}
                       </div>
                     </div>
                   </div>
 
-                  {/* Card Security Chip & Barcode Stripe */}
+                  {/* Gold Security Chip & QR Trigger */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div
@@ -510,25 +602,34 @@ export default function DigitalIdCard({
                           width: 28,
                           height: 20,
                           borderRadius: 4,
-                          background: 'linear-gradient(135deg, #d4af37 0%, #f3e5ab 50%, #aa7c11 100%)',
+                          background: 'linear-gradient(135deg, #D4AF6A 0%, #F5D77F 50%, #B8860B 100%)',
                           boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                          border: '1px solid rgba(0,0,0,0.4)',
+                          border: '1px solid rgba(0,0,0,0.3)',
                         }}
                       />
-                      <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>
-                        NFC SECURE ID
+                      <span
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '0.65rem',
+                          color: 'rgba(255,255,255,0.6)',
+                          letterSpacing: '0.06em',
+                          fontWeight: 600,
+                        }}
+                      >
+                        SECURE VIP PASS
                       </span>
                     </div>
 
                     <button
                       onClick={() => setActiveTab('qr')}
                       style={{
-                        border: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
                         background: 'rgba(255, 255, 255, 0.12)',
-                        color: '#fff',
+                        color: '#ffffff',
                         padding: '6px 12px',
-                        borderRadius: 10,
+                        borderRadius: 'var(--radius-sm, 8px)',
                         fontSize: '0.74rem',
+                        fontFamily: 'Inter, sans-serif',
                         fontWeight: 700,
                         cursor: 'pointer',
                         display: 'flex',
@@ -542,34 +643,49 @@ export default function DigitalIdCard({
                   </div>
                 </div>
               ) : (
-                /* ── SCANNABLE QR CODE VIEW ───────────────────────── */
+                /* ── SCANNABLE QR CODE VIEW (Theme-Aware) ─────────── */
                 <div
                   style={{
-                    borderRadius: 22,
+                    borderRadius: 'var(--radius-lg, 20px)',
                     padding: '24px 20px',
-                    background: 'linear-gradient(145deg, #181926 0%, #292c3f 100%)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    boxShadow: '0 16px 36px rgba(0, 0, 0, 0.5)',
+                    background: 'var(--color-surface-2, #F8F8FC)',
+                    border: '1.5px solid var(--color-border, #E8E0F0)',
+                    boxShadow: 'var(--shadow-card)',
                     textAlign: 'center',
-                    color: '#fff',
                   }}
                 >
-                  <div style={{ fontSize: '0.92rem', fontWeight: 800, letterSpacing: '0.04em', marginBottom: 4 }}>
-                    SCAN TO VERIFY & CONNECT
+                  <div
+                    style={{
+                      fontFamily: 'Playfair Display, serif',
+                      fontSize: '1.1rem',
+                      fontWeight: 700,
+                      color: 'var(--color-text, #1A1228)',
+                      marginBottom: 4,
+                    }}
+                  >
+                    Scan to Connect & Verify
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.65)', marginBottom: 18 }}>
-                    Show this QR code to instantly share your verified ID details
+                  <div
+                    style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.78rem',
+                      color: 'var(--color-text-2, #5A4E70)',
+                      marginBottom: 16,
+                    }}
+                  >
+                    Show this QR code to instantly share your verified profile
                   </div>
 
                   {/* QR Image Box */}
                   <div
                     style={{
                       display: 'inline-block',
-                      padding: 14,
+                      padding: 12,
                       background: '#ffffff',
-                      borderRadius: 18,
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-                      marginBottom: 16,
+                      borderRadius: 'var(--radius-md, 16px)',
+                      boxShadow: 'var(--shadow-md)',
+                      border: '1px solid var(--color-border, #E8E0F0)',
+                      marginBottom: 14,
                     }}
                   >
                     <img
@@ -579,8 +695,24 @@ export default function DigitalIdCard({
                     />
                   </div>
 
-                  <div style={{ fontSize: '0.92rem', fontWeight: 800, marginBottom: 2 }}>{displayName}</div>
-                  <div style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>
+                  <div
+                    style={{
+                      fontFamily: 'Playfair Display, serif',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      color: 'var(--color-text, #1A1228)',
+                      marginBottom: 2,
+                    }}
+                  >
+                    {displayName}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.78rem',
+                      color: 'var(--color-text-3, #9B8FB0)',
+                    }}
+                  >
                     {uniqueId} • {city}
                   </div>
                 </div>
@@ -592,18 +724,20 @@ export default function DigitalIdCard({
                   type="button"
                   onClick={copyId}
                   style={{
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    color: '#fff',
-                    padding: '10px 14px',
-                    borderRadius: 12,
-                    fontSize: '0.8rem',
+                    border: '1.5px solid var(--color-border, #E8E0F0)',
+                    background: 'var(--color-surface-2, #F8F8FC)',
+                    color: 'var(--color-text, #1A1228)',
+                    padding: '11px 14px',
+                    borderRadius: 'var(--radius-md, 12px)',
+                    fontSize: '0.82rem',
+                    fontFamily: 'Inter, sans-serif',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 6,
+                    transition: 'all 0.2s',
                   }}
                 >
                   <span>{copied ? '✓' : '📋'}</span>
@@ -615,18 +749,20 @@ export default function DigitalIdCard({
                   onClick={handleShare}
                   style={{
                     border: 'none',
-                    background: 'linear-gradient(135deg, #E85A8F 0%, #C8386D 100%)',
-                    color: '#fff',
-                    padding: '10px 14px',
-                    borderRadius: 12,
-                    fontSize: '0.8rem',
+                    background: 'var(--gradient-primary, linear-gradient(135deg, #C8386D, #E85A8F))',
+                    color: '#ffffff',
+                    padding: '11px 14px',
+                    borderRadius: 'var(--radius-md, 12px)',
+                    fontSize: '0.82rem',
+                    fontFamily: 'Inter, sans-serif',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 6,
-                    boxShadow: '0 4px 14px rgba(232, 90, 143, 0.4)',
+                    boxShadow: 'var(--shadow-md, 0 4px 16px rgba(200, 56, 109, 0.25))',
+                    transition: 'all 0.2s',
                   }}
                 >
                   <span>🔗</span>

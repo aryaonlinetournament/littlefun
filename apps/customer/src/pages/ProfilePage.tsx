@@ -5,6 +5,7 @@ import { auth } from '../lib/firebase';
 import { profilesApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
+import Header from '../components/Header';
 import DigitalIdCard from '../components/DigitalIdCard';
 
 const INTERESTS = [
@@ -211,10 +212,13 @@ export default function ProfilePage() {
 
   return (
     <div className="page">
-      <div className="page-header">
+      {/* Top Header with LittleFun Brand Logo, Notifications, and Chat */}
+      <Header />
+
+      <div className="page-header" style={{ paddingTop: 6, paddingBottom: 6 }}>
         <span className="page-title">My Profile</span>
         {!editing && (
-          <button className="btn btn-outline btn-sm" onClick={startEdit}>Edit</button>
+          <button className="btn btn-outline btn-sm" onClick={startEdit}>✏️ Edit Profile</button>
         )}
       </div>
 
