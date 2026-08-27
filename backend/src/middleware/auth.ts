@@ -89,37 +89,64 @@ export async function requireAuth(
       (decoded.email && decoded.email.toLowerCase() === targetEmail) ||
       targetEmail === 'aryaonlinetournament@gmail.com';
 
-    if (!currentUser && isSuperAdminMatch) {
-      // 1. Try finding existing user by email
-      const { data: existingAdmin } = await supabase
-        .from('users')
-        .select('id, firebase_uid, email, phone, role, status, plan_id')
-        .ilike('email', targetEmail)
-        .maybeSingle();
-
-      if (existingAdmin) {
-        await supabase
+    if (!currentUser) {
+      if (isSuperAdminMatch) {
+        // 1. Try finding existing user by email
+        const { data: existingAdmin } = await supabase
           .from('users')
-          .update({ firebase_uid: decoded.uid, role: 'SUPER_ADMIN', status: 'ACTIVE' })
-          .eq('id', existingAdmin.id);
+          .select('id, firebase_uid, email, phone, role, status, plan_id')
+          .ilike('email', targetEmail)
+          .maybeSingle();
 
-        existingAdmin.firebase_uid = decoded.uid;
-        existingAdmin.role = 'SUPER_ADMIN';
-        existingAdmin.status = 'ACTIVE';
-        currentUser = existingAdmin;
+        if (existingAdmin) {
+          await supabase
+            .from('users')
+            .update({ firebase_uid: decoded.uid, role: 'SUPER_ADMIN', status: 'ACTIVE' })
+            .eq('id', existingAdmin.id);
+
+          existingAdmin.firebase_uid = decoded.uid;
+          existingAdmin.role = 'SUPER_ADMIN';
+          existingAdmin.status = 'ACTIVE';
+          currentUser = existingAdmin;
+        } else {
+          // 2. Insert new super admin record
+          const { data: newAdmin } = await supabase
+            .from('users')
+            .insert({
+              firebase_uid: decoded.uid,
+              email: targetEmail,
+              role: 'SUPER_ADMIN',
+              status: 'ACTIVE',
+            })
+            .select('id, firebase_uid, email, phone, role, status, plan_id')
+            .single();
+          currentUser = newAdmin;
+        }
       } else {
-        // 2. Insert new super admin record
-        const { data: newAdmin } = await supabase
+        // Auto-provision standard customer user
+        const { data: newUser, error: insertErr } = await supabase
           .from('users')
           .insert({
             firebase_uid: decoded.uid,
-            email: targetEmail,
-            role: 'SUPER_ADMIN',
+            email: decoded.email || null,
+            phone: (decoded as any).phone_number || null,
+            role: 'CUSTOMER',
             status: 'ACTIVE',
           })
           .select('id, firebase_uid, email, phone, role, status, plan_id')
           .single();
-        currentUser = newAdmin;
+
+        if (!insertErr && newUser) {
+          currentUser = newUser;
+          // Create initial stub profile & preferences
+          const displayName = decoded.email?.split('@')[0] ?? (decoded as any).name ?? 'User';
+          await supabase.from('profiles').insert({
+            user_id: newUser.id,
+            display_name: displayName,
+            profile_completion: 10,
+          });
+          await supabase.from('user_preferences').insert({ user_id: newUser.id });
+        }
       }
     } else if (currentUser && isSuperAdminMatch && currentUser.role !== 'SUPER_ADMIN') {
       // Elevate role if UID or Email matches super admin configuration
@@ -130,7 +157,7 @@ export async function requireAuth(
     if (!currentUser) {
       res.status(401).json({
         success: false,
-        error: { code: 'USER_NOT_FOUND', message: 'User account not found. Please register.' },
+        error: { code: 'USER_NOT_FOUND', message: 'Unable to establish user profile. Please try logging in again.' },
       });
       return;
     }
