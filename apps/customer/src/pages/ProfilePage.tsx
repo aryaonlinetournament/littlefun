@@ -5,6 +5,7 @@ import { auth } from '../lib/firebase';
 import { profilesApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
+import DigitalIdCard from '../components/DigitalIdCard';
 
 const INTERESTS = [
   'Dining', 'Coffee', 'Travel', 'Art', 'Music', 'Fitness', 'Reading', 'Cinema',
@@ -312,6 +313,20 @@ export default function ProfilePage() {
             </span>
           </div>
         </div>
+
+        {/* ── Digital Member ID Pass & QR ─────────────────── */}
+        <DigitalIdCard
+          displayName={userDisplayName}
+          photoUrl={primaryPhoto?.url}
+          uniqueId={uniqueId || (profile?.unique_id as string) || '#LF-88201'}
+          dateOfBirth={profile?.date_of_birth as string | undefined}
+          gender={profile?.gender as string | undefined}
+          city={(profile?.city as string) || 'Mumbai, IN'}
+          isVerified={isVerified}
+          email={userEmail}
+          phone={userPhone}
+          memberSince={profile?.created_at ? new Date(profile.created_at as string).getFullYear().toString() : '2026'}
+        />
 
         {/* ── Profile Completion ───────────────────────────── */}
         <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
