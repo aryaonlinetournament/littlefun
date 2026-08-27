@@ -81,7 +81,136 @@ import { achieversRouter, adminAchieversRouter } from './modules/achievers/route
 import { dummyProfilesRouter, adminDummyProfilesRouter } from './modules/dummyProfiles/routes';
 
 // ── Root & Health check ───────────────────────────────────────────
-app.get('/', (_req, res) => {
+app.get('/', (req, res) => {
+  if (req.accepts('html')) {
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>LittleFun V2 — API Server 24/7</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #0d0f17;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+          }
+          .card {
+            background: rgba(26, 29, 45, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(232, 90, 143, 0.15);
+          }
+          .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+          }
+          .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 2s infinite;
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+          }
+          h1 {
+            font-size: 26px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FF6584, #E85A8F, #C8386D);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+          }
+          p.sub {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 28px;
+          }
+          .links {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .btn {
+            display: block;
+            padding: 13px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+          }
+          .btn-primary {
+            background: linear-gradient(135deg, #E85A8F, #C8386D);
+            color: white;
+            box-shadow: 0 4px 14px rgba(232, 90, 143, 0.4);
+          }
+          .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(232, 90, 143, 0.6);
+          }
+          .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+          }
+          .footer {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #64748b;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="badge">
+            <span class="pulse-dot"></span>
+            System 24/7 Online (v2.0.0)
+          </div>
+          <h1>LittleFun V2 API Server</h1>
+          <p class="sub">Backend Engine & Realtime Services Connected</p>
+          <div class="links">
+            <a href="https://littlefunwithpartner.web.app" class="btn btn-primary" target="_blank">Open Customer App 📱</a>
+            <a href="https://littlefunwithpartner.web.app/admin" class="btn btn-secondary" target="_blank">Open Admin Portal 🛡️</a>
+            <a href="/health" class="btn btn-secondary">Check Health Endpoint 🩺</a>
+          </div>
+          <div class="footer">
+            Powered by Node.js • Supabase PostgreSQL • Firebase Auth
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    return;
+  }
   res.json({
     name: 'LittleFun V2 API',
     status: 'online',

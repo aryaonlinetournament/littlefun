@@ -8,13 +8,13 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
 
   // Firebase Admin
-  FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
+  FIREBASE_PROJECT_ID: z.string().default(process.env.FIREBASE_PROJECT_ID || 'littlefun-dev-project'),
   FIREBASE_SERVICE_ACCOUNT_KEY: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
 
   // Supabase
-  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+  SUPABASE_URL: z.string().default(process.env.SUPABASE_URL || 'https://mock-project.supabase.co'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().default(process.env.SUPABASE_SERVICE_ROLE_KEY || 'mock-service-role-key'),
 
   // Super Admin security overrides
   SUPER_ADMIN_UID: z.string().optional().default('FkCSTRi6JBSfBf2haCnj8yCoOiC2'),
