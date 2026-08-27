@@ -1,43 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const MEMBER_AVATARS = [
-  {
-    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80&auto=format&fit=crop',
-    name: 'Priya, 23',
-    city: 'Delhi',
-    verified: true,
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&q=80&auto=format&fit=crop',
-    name: 'Meera, 24',
-    city: 'Mumbai',
-    verified: true,
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=80&auto=format&fit=crop',
-    name: 'Ananya, 22',
-    city: 'Bengaluru',
-    verified: true,
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&q=80&auto=format&fit=crop',
-    name: 'Kabir, 25',
-    city: 'Goa',
-    verified: true,
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80&auto=format&fit=crop',
-    name: 'Rhea, 23',
-    city: 'Chandigarh',
-    verified: true,
-  },
-];
-
 export default function LoginPage() {
-  const { signIn } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -48,105 +18,171 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
-      await signIn(email, password);
+      if (mode === 'signup') {
+        if (!displayName.trim()) {
+          throw new Error('Please enter your full name or nickname.');
+        }
+        await signUp(email, password, displayName.trim());
+      } else {
+        await signIn(email, password);
+      }
       navigate('/discover');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Sign in failed';
-      if (msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
         setError('Invalid email or password.');
+      } else if (msg.includes('email-already-in-use')) {
+        setError('This email is already registered. Please Sign In.');
+      } else if (msg.includes('weak-password')) {
+        setError('Password should be at least 6 characters.');
       } else if (msg.includes('too-many-requests')) {
         setError('Too many attempts. Please wait a moment.');
       } else {
-        setError('Sign in failed. Please check credentials and try again.');
+        setError(msg);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleFillDemo = () => {
+    setEmail('aryaonlinetournament@gmail.com');
+    setPassword('123456');
+    setMode('signin');
+    setError('');
+  };
+
   return (
     <div className="login-page">
-      {/* ── LUXURY HERO SECTION WITH YOUNG ADULT MEMBER SHOWCASE ── */}
+      {/* ── TOP HERO HEADER (LittleFun Signature Style) ──────────── */}
       <div className="login-hero">
-        {/* Ambient Glow Orbs */}
-        <div className="hero-glow-orb glow-1" />
-        <div className="hero-glow-orb glow-2" />
-
-        {/* Brand Header */}
-        <div className="login-logo">
-          <div className="logo-badge">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#ffffff">
+        <div className="login-brand-header">
+          <div className="login-logo-box">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           </div>
-          <span className="login-logo-text">LittleFun</span>
+
+          <div className="login-brand-text">
+            L<span className="dot-i-wrap">ı<svg className="i-heart-dot" viewBox="0 0 24 24" fill="#FF2A7A"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>ttle&nbsp;<span className="pink-text">Fun</span>
+          </div>
         </div>
 
-        <p className="login-tagline">Where verified young adults meet & connect</p>
+        <p className="login-tagline">
+          Exclusive VIP Companionship &amp; Verified Connections
+        </p>
 
-        {/* Dynamic Member Avatar Showcase */}
-        <div className="member-showcase">
-          <div className="member-avatar-row">
-            {MEMBER_AVATARS.map((m, idx) => (
-              <div key={idx} className="showcase-avatar-wrapper" style={{ animationDelay: `${idx * 0.15}s` }}>
-                <img src={m.url} alt={m.name} className="showcase-avatar-img" />
-                <span className="showcase-verified-dot">✓</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="member-stat-badge">
-            <span className="pulse-dot" />
-            <span><strong>2,400+ Verified Members</strong> Active Now</span>
-          </div>
+        {/* Decorative Floating Heart Chips */}
+        <div className="login-hero-badges">
+          <span className="hero-badge">✨ 100% Verified Profiles</span>
+          <span className="hero-badge">🔒 Private &amp; Secure</span>
         </div>
       </div>
 
-      {/* ── LOGIN FORM CONTAINER ── */}
-      <div className="login-form-container">
-        <div className="form-card-header">
-          <h1 className="login-form-title">Welcome back ✨</h1>
-          <p className="login-form-sub">Sign in to access verified companions and events</p>
+      {/* ── LOGIN / SIGNUP CARD ──────────────────────────────────── */}
+      <div className="login-card-container">
+        {/* Tab Toggle */}
+        <div className="login-tabs">
+          <button
+            type="button"
+            className={`login-tab ${mode === 'signin' ? 'active' : ''}`}
+            onClick={() => { setMode('signin'); setError(''); }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            className={`login-tab ${mode === 'signup' ? 'active' : ''}`}
+            onClick={() => { setMode('signup'); setError(''); }}
+          >
+            Create Account
+          </button>
+        </div>
+
+        <div className="login-form-header">
+          <h1 className="login-title">
+            {mode === 'signin' ? 'Welcome back' : 'Join LittleFun'}
+          </h1>
+          <p className="login-subtitle">
+            {mode === 'signin'
+              ? 'Enter your credentials to access your VIP account'
+              : 'Sign up to discover and connect with companions'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form" noValidate>
+          {mode === 'signup' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="displayName">
+                Full Name / Nickname
+              </label>
+              <div className="input-icon-wrapper">
+                <span className="input-lead-icon">👤</span>
+                <input
+                  id="displayName"
+                  type="text"
+                  className="form-input custom-input"
+                  placeholder="e.g. Arya / Alex"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" htmlFor="email">
-              <span>📧 Email address</span>
+              Email address
             </label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-            />
+            <div className="input-icon-wrapper">
+              <span className="input-lead-icon">✉️</span>
+              <input
+                id="email"
+                type="email"
+                className="form-input custom-input"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
           </div>
 
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label className="form-label" htmlFor="password">
-                <span>🔒 Password</span>
+                Password
               </label>
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={handleFillDemo}
+                  className="demo-fill-btn"
+                  title="Auto-fill demo test account"
+                >
+                  ⚡ Quick Demo Login
+                </button>
+              )}
             </div>
-            <div className="input-wrapper">
+            <div className="input-icon-wrapper">
+              <span className="input-lead-icon">🔒</span>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                placeholder="Enter your password"
+                className="form-input custom-input"
+                placeholder={mode === 'signup' ? 'Create a secure password (min 6 chars)' : 'Enter your password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 required
               />
               <button
                 type="button"
-                className="input-suffix-btn"
+                className="input-eye-btn"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -157,46 +193,53 @@ export default function LoginPage() {
 
           {error && (
             <div className="form-error-banner" role="alert">
-              ⚠️ {error}
+              <span>⚠️</span>
+              <span>{error}</span>
             </div>
           )}
 
           <button
             type="submit"
-            className="btn btn-primary btn-block btn-lg login-submit-btn"
-            disabled={loading || !email || !password}
+            className="login-submit-btn"
+            disabled={loading || !email || !password || (mode === 'signup' && !displayName)}
             id="login-submit-btn"
           >
             {loading ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
-                Signing in…
+              <span className="btn-loading-flex">
+                <span className="spinner-small" />
+                <span>{mode === 'signin' ? 'Signing in…' : 'Creating Account…'}</span>
               </span>
             ) : (
-              'Sign In ➔'
+              <span>{mode === 'signin' ? 'Sign In ➔' : 'Create Account ➔'}</span>
             )}
           </button>
         </form>
 
-        {/* Trust Badges */}
-        <div className="trust-footer">
-          <div className="trust-item">
-            <span className="trust-icon">🛡️</span>
-            <span>100% Aadhaar Verified</span>
+        {/* Footer info & security badge */}
+        <div className="login-footer">
+          <div className="security-badge">
+            <span className="shield-icon">🛡️</span>
+            <span>256-Bit SSL Encrypted • 100% Confidential</span>
           </div>
-          <div className="trust-item">
-            <span className="trust-icon">🔒</span>
-            <span>End-to-End Privacy</span>
-          </div>
-          <div className="trust-item">
-            <span className="trust-icon">⚡</span>
-            <span>Instant Connections</span>
-          </div>
-        </div>
 
-        <p className="login-help-text">
-          Need assistance or onboarding? <a href="mailto:support@littlefun.in" className="help-link">Contact Concierge</a>
-        </p>
+          <p className="toggle-mode-text">
+            {mode === 'signin' ? (
+              <>
+                Don't have an account?{' '}
+                <button type="button" className="inline-link-btn" onClick={() => { setMode('signup'); setError(''); }}>
+                  Sign up now
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button type="button" className="inline-link-btn" onClick={() => { setMode('signin'); setError(''); }}>
+                  Sign in here
+                </button>
+              </>
+            )}
+          </p>
+        </div>
       </div>
 
       <style>{`
@@ -204,203 +247,176 @@ export default function LoginPage() {
           min-height: 100vh;
           display: flex;
           flex-direction: column;
-          background: #1A1228;
+          background: #F8F8FC;
           font-family: 'Inter', system-ui, -apple-system, sans-serif;
-          position: relative;
         }
 
+        /* ── HERO BANNER ────────────────────────────────────────── */
         .login-hero {
-          position: relative;
+          background: linear-gradient(145deg, #1A1228 0%, #38142A 50%, #1A1228 100%);
+          padding: 48px 24px 44px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justifyContent: center;
-          padding: 48px 20px 42px;
-          background: linear-gradient(135deg, #240E1E 0%, #C8386D 50%, #9E2855 100%);
-          overflow: hidden;
           text-align: center;
+          position: relative;
+          overflow: hidden;
+          border-bottom: 2px solid rgba(232, 90, 143, 0.35);
         }
 
-        .hero-glow-orb {
+        .login-hero::before {
+          content: '';
           position: absolute;
+          top: -40px;
+          right: -40px;
+          width: 200px;
+          height: 200px;
           border-radius: 50%;
-          filter: blur(50px);
+          background: radial-gradient(circle, rgba(232, 90, 143, 0.3) 0%, transparent 70%);
           pointer-events: none;
         }
-        .glow-1 {
-          top: -30px;
-          left: 10%;
-          width: 140px;
-          height: 140px;
-          background: rgba(255, 143, 171, 0.4);
-        }
-        .glow-2 {
-          bottom: 10px;
-          right: 5%;
-          width: 180px;
-          height: 180px;
-          background: rgba(139, 92, 246, 0.3);
-        }
 
-        .login-logo {
+        .login-brand-header {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 8px;
-          z-index: 1;
-        }
-
-        .logo-badge {
-          width: 44px;
-          height: 44px;
-          border-radius: 14px;
-          background: linear-gradient(135deg, #FF2A7A, #E85A8F);
-          display: flex;
-          align-items: center;
-          justifyContent: center;
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-          border: 1.5px solid rgba(255, 255, 255, 0.4);
-        }
-
-        .login-logo-text {
-          font-family: 'Playfair Display', serif;
-          font-size: 2.2rem;
-          font-weight: 700;
-          color: #ffffff;
-          letter-spacing: -0.01em;
-          text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-
-        .login-tagline {
-          color: rgba(255, 255, 255, 0.9);
-          font-size: 0.94rem;
-          margin-bottom: 24px;
-          z-index: 1;
-          font-weight: 500;
-        }
-
-        /* Member Showcase */
-        .member-showcase {
-          display: flex;
-          flex-direction: column;
           align-items: center;
           gap: 12px;
-          z-index: 1;
+          margin-bottom: 12px;
         }
 
-        .member-avatar-row {
-          display: flex;
-          align-items: center;
-          justifyContent: center;
-          gap: -12px;
-        }
-
-        .showcase-avatar-wrapper {
-          position: relative;
-          margin: 0 -6px;
-          transition: transform 0.25s ease;
-          animation: floatSlow 3s ease-in-out infinite alternate;
-        }
-
-        .showcase-avatar-wrapper:hover {
-          transform: translateY(-4px) scale(1.12);
-          z-index: 10;
-        }
-
-        .showcase-avatar-img {
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
-          object-fit: cover;
-          border: 2.5px solid #ffffff;
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-          display: block;
-        }
-
-        .showcase-verified-dot {
-          position: absolute;
-          bottom: 0;
-          right: 0;
-          width: 17px;
-          height: 17px;
-          background: #10B981;
-          color: #ffffff;
-          border: 2px solid #ffffff;
-          border-radius: 50%;
-          font-size: 0.6rem;
-          font-weight: 900;
+        .login-logo-box {
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, #FF8FAB 0%, #C8386D 50%, #9E2855 100%);
           display: flex;
           align-items: center;
           justify-content: center;
+          box-shadow: 0 8px 20px rgba(200, 56, 109, 0.4);
+          border: 2px solid rgba(255, 255, 255, 0.25);
         }
 
-        .member-stat-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          background: rgba(0, 0, 0, 0.32);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          padding: 6px 14px;
-          border-radius: 9999px;
+        .login-brand-text {
+          font-family: 'Playfair Display', serif;
+          font-size: 2.2rem;
+          font-weight: 800;
           color: #ffffff;
-          font-size: 0.78rem;
+          letter-spacing: -0.02em;
+          display: flex;
+          align-items: center;
         }
 
-        .pulse-dot {
-          width: 8px;
-          height: 8px;
-          background: #22C55E;
-          border-radius: 50%;
-          box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.35);
-          animation: pulseGreen 2s infinite;
+        .login-brand-text .pink-text {
+          color: #FF8FAB;
+          margin-left: 2px;
         }
 
-        @keyframes pulseGreen {
-          0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
-          70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        .dot-i-wrap {
+          position: relative;
+          display: inline-block;
         }
 
-        @keyframes floatSlow {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-4px); }
+        .i-heart-dot {
+          position: absolute;
+          top: -4px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 9px;
+          height: 9px;
         }
 
-        /* Form Container */
-        .login-form-container {
+        .login-tagline {
+          color: rgba(255, 255, 255, 0.85);
+          font-size: 0.94rem;
+          max-width: 320px;
+          line-height: 1.45;
+          margin-bottom: 18px;
+        }
+
+        .login-hero-badges {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .hero-badge {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          color: #FF8FAB;
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 4px 12px;
+          borderRadius: 9999px;
+          backdrop-filter: blur(8px);
+        }
+
+        /* ── CARD CONTAINER ─────────────────────────────────────── */
+        .login-card-container {
+          flex: 1;
           background: #ffffff;
           border-radius: 28px 28px 0 0;
-          padding: 30px 24px 40px;
-          margin-top: -20px;
-          box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
-          flex: 1;
-          display: flex;
-          flex-direction: column;
+          padding: 28px 24px 40px;
+          margin-top: -18px;
+          box-shadow: 0 -8px 32px rgba(26, 18, 40, 0.12);
+          max-width: 480px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          position: relative;
+          z-index: 2;
         }
 
-        .form-card-header {
+        /* ── TABS ───────────────────────────────────────────────── */
+        .login-tabs {
+          display: flex;
+          background: #F0F0F8;
+          padding: 4px;
+          border-radius: 16px;
+          margin-bottom: 24px;
+        }
+
+        .login-tab {
+          flex: 1;
+          padding: 10px 0;
+          text-align: center;
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #5A4E70;
+          border: none;
+          background: transparent;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .login-tab.active {
+          background: #ffffff;
+          color: #C8386D;
+          box-shadow: 0 2px 8px rgba(26, 18, 40, 0.08);
+        }
+
+        .login-form-header {
           margin-bottom: 20px;
         }
 
-        .login-form-title {
+        .login-title {
           font-family: 'Playfair Display', serif;
           font-size: 1.55rem;
-          font-weight: 700;
-          color: var(--color-text, #1A1228);
+          font-weight: 800;
+          color: #1A1228;
           margin-bottom: 4px;
         }
 
-        .login-form-sub {
-          color: var(--color-text-2, #5A4E70);
+        .login-subtitle {
+          color: #5A4E70;
           font-size: 0.88rem;
         }
 
+        /* ── FORM INPUTS ────────────────────────────────────────── */
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 16px;
         }
 
         .form-group {
@@ -412,118 +428,170 @@ export default function LoginPage() {
         .form-label {
           font-size: 0.82rem;
           font-weight: 700;
-          color: var(--color-text, #1A1228);
+          color: #1A1228;
         }
 
-        .form-input {
+        .input-icon-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .input-lead-icon {
+          position: absolute;
+          left: 14px;
+          font-size: 1.05rem;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        .custom-input {
           width: 100%;
-          padding: 13px 16px;
-          border: 1.5px solid var(--color-border, #E8E0F0);
+          padding: 13px 44px 13px 42px;
           border-radius: 14px;
-          font-size: 0.94rem;
-          color: var(--color-text, #1A1228);
-          background: var(--color-surface-2, #F8F8FC);
+          border: 1.5px solid #E8E0F0;
+          background: #F8F8FC;
+          font-size: 0.92rem;
+          color: #1A1228;
           transition: all 0.2s ease;
           outline: none;
-          box-sizing: border-box;
         }
 
-        .form-input:focus {
-          border-color: var(--color-primary-light, #E85A8F);
+        .custom-input:focus {
+          border-color: #E85A8F;
           background: #ffffff;
-          box-shadow: 0 0 0 4px rgba(232, 90, 143, 0.15);
+          box-shadow: 0 0 0 3.5px rgba(232, 90, 143, 0.18);
         }
 
-        .input-wrapper {
-          position: relative;
-        }
-
-        .input-wrapper .form-input {
-          padding-right: 48px;
-        }
-
-        .input-suffix-btn {
+        .input-eye-btn {
           position: absolute;
           right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          font-size: 1.1rem;
-          color: var(--color-text-3, #9B8FB0);
-          padding: 4px 6px;
-          cursor: pointer;
           background: none;
           border: none;
+          cursor: pointer;
+          font-size: 1.1rem;
+          padding: 4px;
+          color: #9B8FB0;
+        }
+
+        .demo-fill-btn {
+          background: none;
+          border: none;
+          color: #C8386D;
+          font-size: 0.74rem;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 2px 6px;
+          border-radius: 6px;
+          transition: background 0.15s;
+        }
+
+        .demo-fill-btn:hover {
+          background: #FFF0F5;
         }
 
         .form-error-banner {
-          background: #FDEDEC;
-          color: #C0392B;
+          background: #FFF0F5;
+          border: 1.5px solid #FF8FAB;
+          color: #C8386D;
           padding: 12px 16px;
-          border-radius: 12px;
-          font-size: 0.85rem;
-          border: 1px solid rgba(192, 57, 43, 0.2);
+          border-radius: 14px;
+          font-size: 0.84rem;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
+        /* ── SUBMIT BUTTON ──────────────────────────────────────── */
         .login-submit-btn {
           margin-top: 6px;
-          background: var(--gradient-primary, linear-gradient(135deg, #C8386D, #E85A8F));
+          background: linear-gradient(135deg, #C8386D 0%, #E85A8F 100%);
           color: #ffffff;
           border: none;
-          padding: 14px;
-          border-radius: 14px;
-          font-size: 0.98rem;
-          font-weight: 700;
-          box-shadow: 0 8px 24px rgba(200, 56, 109, 0.3);
-          transition: all 0.2s ease;
+          padding: 15px 20px;
+          border-radius: 16px;
+          font-size: 0.96rem;
+          font-weight: 800;
           cursor: pointer;
+          box-shadow: 0 6px 20px rgba(200, 56, 109, 0.32);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .login-submit-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 12px 28px rgba(200, 56, 109, 0.4);
+          box-shadow: 0 10px 26px rgba(200, 56, 109, 0.42);
+        }
+
+        .login-submit-btn:active:not(:disabled) {
+          transform: translateY(0);
         }
 
         .login-submit-btn:disabled {
-          opacity: 0.65;
+          opacity: 0.55;
           cursor: not-allowed;
           box-shadow: none;
         }
 
-        /* Trust Footer */
-        .trust-footer {
+        .btn-loading-flex {
           display: flex;
-          justifyContent: space-around;
-          margin-top: 24px;
-          padding-top: 18px;
-          border-top: 1px solid var(--color-border, #E8E0F0);
+          align-items: center;
+          gap: 10px;
         }
 
-        .trust-item {
+        .spinner-small {
+          width: 18px;
+          height: 18px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: #ffffff;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* ── FOOTER ─────────────────────────────────────────────── */
+        .login-footer {
+          margin-top: 24px;
+          text-align: center;
           display: flex;
           flex-direction: column;
+          gap: 14px;
           align-items: center;
-          gap: 4px;
-          font-size: 0.68rem;
-          font-weight: 700;
-          color: var(--color-text-2, #5A4E70);
-          text-align: center;
         }
 
-        .trust-icon {
-          font-size: 1.1rem;
+        .security-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #F8F8FC;
+          border: 1px solid #E8E0F0;
+          padding: 6px 14px;
+          border-radius: 9999px;
+          font-size: 0.74rem;
+          font-weight: 600;
+          color: #5A4E70;
         }
 
-        .login-help-text {
-          text-align: center;
-          color: var(--color-text-3, #9B8FB0);
-          font-size: 0.8rem;
-          margin-top: 18px;
+        .toggle-mode-text {
+          font-size: 0.86rem;
+          color: #5A4E70;
         }
 
-        .help-link {
-          color: var(--color-primary, #C8386D);
-          font-weight: 700;
+        .inline-link-btn {
+          background: none;
+          border: none;
+          color: #C8386D;
+          font-weight: 800;
+          cursor: pointer;
           text-decoration: underline;
+          padding: 0;
+          font-size: inherit;
         }
       `}</style>
     </div>

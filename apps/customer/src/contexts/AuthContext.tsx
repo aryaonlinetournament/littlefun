@@ -3,6 +3,8 @@ import {
   type User,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
   setPersistence,
   browserLocalPersistence,
@@ -17,6 +19,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isNewUser: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   logOut: () => Promise<void>;
 }
 
@@ -64,12 +67,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
+  const signUp = async (email: string, password: string, displayName?: string) => {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    if (displayName && cred.user) {
+      await updateProfile(cred.user, { displayName });
+    }
+  };
+
   const logOut = async () => {
     await signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, userId, uniqueId, isLoading, isNewUser, signIn, logOut }}>
+    <AuthContext.Provider value={{ user, userId, uniqueId, isLoading, isNewUser, signIn, signUp, logOut }}>
       {children}
     </AuthContext.Provider>
   );
