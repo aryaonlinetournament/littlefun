@@ -3,11 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,23 +18,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (mode === 'signup') {
-        if (!displayName.trim()) {
-          throw new Error('Please enter your full name or nickname.');
-        }
-        await signUp(email, password, displayName.trim());
-      } else {
-        await signIn(email, password);
-      }
+      await signIn(email, password);
       navigate('/discover');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Authentication failed';
       if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
         setError('Invalid email or password.');
-      } else if (msg.includes('email-already-in-use')) {
-        setError('This email is already registered. Please Sign In.');
-      } else if (msg.includes('weak-password')) {
-        setError('Password should be at least 6 characters.');
       } else if (msg.includes('too-many-requests')) {
         setError('Too many attempts. Please wait a moment.');
       } else {
@@ -50,7 +37,6 @@ export default function LoginPage() {
   const handleFillDemo = () => {
     setEmail('aryaonlinetournament@gmail.com');
     setPassword('123456');
-    setMode('signin');
     setError('');
   };
 
@@ -81,58 +67,16 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── LOGIN / SIGNUP CARD ──────────────────────────────────── */}
+      {/* ── LOGIN CARD ─────────────────────────────────────────── */}
       <div className="login-card-container">
-        {/* Tab Toggle */}
-        <div className="login-tabs">
-          <button
-            type="button"
-            className={`login-tab ${mode === 'signin' ? 'active' : ''}`}
-            onClick={() => { setMode('signin'); setError(''); }}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`login-tab ${mode === 'signup' ? 'active' : ''}`}
-            onClick={() => { setMode('signup'); setError(''); }}
-          >
-            Create Account
-          </button>
-        </div>
-
         <div className="login-form-header">
-          <h1 className="login-title">
-            {mode === 'signin' ? 'Welcome back' : 'Join LittleFun'}
-          </h1>
+          <h1 className="login-title">Welcome Back</h1>
           <p className="login-subtitle">
-            {mode === 'signin'
-              ? 'Enter your credentials to access your VIP account'
-              : 'Sign up to discover and connect with companions'}
+            Sign in to access your VIP account &amp; connections
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form" noValidate>
-          {mode === 'signup' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="displayName">
-                Full Name / Nickname
-              </label>
-              <div className="input-icon-wrapper">
-                <span className="input-lead-icon">👤</span>
-                <input
-                  id="displayName"
-                  type="text"
-                  className="form-input custom-input"
-                  placeholder="e.g. Arya / Alex"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-          )}
-
           <div className="form-group">
             <label className="form-label" htmlFor="email">
               Email address
@@ -157,16 +101,14 @@ export default function LoginPage() {
               <label className="form-label" htmlFor="password">
                 Password
               </label>
-              {mode === 'signin' && (
-                <button
-                  type="button"
-                  onClick={handleFillDemo}
-                  className="demo-fill-btn"
-                  title="Auto-fill demo test account"
-                >
-                  ⚡ Quick Demo Login
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleFillDemo}
+                className="demo-fill-btn"
+                title="Auto-fill demo test account"
+              >
+                ⚡ Quick Demo Login
+              </button>
             </div>
             <div className="input-icon-wrapper">
               <span className="input-lead-icon">🔒</span>
@@ -174,10 +116,10 @@ export default function LoginPage() {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 className="form-input custom-input"
-                placeholder={mode === 'signup' ? 'Create a secure password (min 6 chars)' : 'Enter your password'}
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                autoComplete="current-password"
                 required
               />
               <button
@@ -201,16 +143,16 @@ export default function LoginPage() {
           <button
             type="submit"
             className="login-submit-btn"
-            disabled={loading || !email || !password || (mode === 'signup' && !displayName)}
+            disabled={loading || !email || !password}
             id="login-submit-btn"
           >
             {loading ? (
               <span className="btn-loading-flex">
                 <span className="spinner-small" />
-                <span>{mode === 'signin' ? 'Signing in…' : 'Creating Account…'}</span>
+                <span>Signing in…</span>
               </span>
             ) : (
-              <span>{mode === 'signin' ? 'Sign In ➔' : 'Create Account ➔'}</span>
+              <span>Sign In ➔</span>
             )}
           </button>
         </form>
@@ -222,22 +164,8 @@ export default function LoginPage() {
             <span>256-Bit SSL Encrypted • 100% Confidential</span>
           </div>
 
-          <p className="toggle-mode-text">
-            {mode === 'signin' ? (
-              <>
-                Don't have an account?{' '}
-                <button type="button" className="inline-link-btn" onClick={() => { setMode('signup'); setError(''); }}>
-                  Sign up now
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button type="button" className="inline-link-btn" onClick={() => { setMode('signin'); setError(''); }}>
-                  Sign in here
-                </button>
-              </>
-            )}
+          <p className="login-help-text">
+            Need VIP Access or Support? Contact us to get started.
           </p>
         </div>
       </div>
@@ -346,7 +274,7 @@ export default function LoginPage() {
           font-size: 0.72rem;
           font-weight: 700;
           padding: 4px 12px;
-          borderRadius: 9999px;
+          border-radius: 9999px;
           backdrop-filter: blur(8px);
         }
 
@@ -355,7 +283,7 @@ export default function LoginPage() {
           flex: 1;
           background: #ffffff;
           border-radius: 28px 28px 0 0;
-          padding: 28px 24px 40px;
+          padding: 32px 24px 44px;
           margin-top: -18px;
           box-shadow: 0 -8px 32px rgba(26, 18, 40, 0.12);
           max-width: 480px;
@@ -366,42 +294,14 @@ export default function LoginPage() {
           z-index: 2;
         }
 
-        /* ── TABS ───────────────────────────────────────────────── */
-        .login-tabs {
-          display: flex;
-          background: #F0F0F8;
-          padding: 4px;
-          border-radius: 16px;
-          margin-bottom: 24px;
-        }
-
-        .login-tab {
-          flex: 1;
-          padding: 10px 0;
-          text-align: center;
-          font-size: 0.88rem;
-          font-weight: 700;
-          color: #5A4E70;
-          border: none;
-          background: transparent;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .login-tab.active {
-          background: #ffffff;
-          color: #C8386D;
-          box-shadow: 0 2px 8px rgba(26, 18, 40, 0.08);
-        }
-
         .login-form-header {
-          margin-bottom: 20px;
+          margin-bottom: 24px;
+          text-align: left;
         }
 
         .login-title {
           font-family: 'Playfair Display', serif;
-          font-size: 1.55rem;
+          font-size: 1.6rem;
           font-weight: 800;
           color: #1A1228;
           margin-bottom: 4px;
@@ -416,7 +316,7 @@ export default function LoginPage() {
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 18px;
         }
 
         .form-group {
@@ -557,7 +457,7 @@ export default function LoginPage() {
 
         /* ── FOOTER ─────────────────────────────────────────────── */
         .login-footer {
-          margin-top: 24px;
+          margin-top: 28px;
           text-align: center;
           display: flex;
           flex-direction: column;
@@ -578,20 +478,9 @@ export default function LoginPage() {
           color: #5A4E70;
         }
 
-        .toggle-mode-text {
-          font-size: 0.86rem;
+        .login-help-text {
+          font-size: 0.82rem;
           color: #5A4E70;
-        }
-
-        .inline-link-btn {
-          background: none;
-          border: none;
-          color: #C8386D;
-          font-weight: 800;
-          cursor: pointer;
-          text-decoration: underline;
-          padding: 0;
-          font-size: inherit;
         }
       `}</style>
     </div>
