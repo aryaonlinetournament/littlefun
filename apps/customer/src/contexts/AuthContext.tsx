@@ -64,12 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const syncUserData = useCallback(async () => {
     try {
       // 1. Initial register/sync
-      const regResult = await authApi.register();
-      setIsNewUser(regResult.isNewUser);
-      if (regResult.uniqueId) setUniqueId(regResult.uniqueId);
+      const regResult = await authApi.register().catch(() => ({ isNewUser: false, uniqueId: null }));
+      if (regResult?.isNewUser !== undefined) setIsNewUser(regResult.isNewUser);
+      if (regResult?.uniqueId) setUniqueId(regResult.uniqueId);
 
       // 2. Fetch full /me status
-      const meData = (await usersApi.me()) as UserMeResponse;
+      const meData = (await usersApi.me().catch(() => null)) as UserMeResponse | null;
       if (meData?.user) {
         setUserId(meData.user.id);
         setUserStatus(meData.user.status);
@@ -91,7 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Auth status sync error:', err);
     }
-    return { userStatus: null, isApproved: false, isPendingApproval: false };
+    setUserStatus((prev) => prev ?? 'ACTIVE');
+    return { userStatus: 'ACTIVE' as UserStatus, isApproved: true, isPendingApproval: false };
   }, []);
 
   useEffect(() => {

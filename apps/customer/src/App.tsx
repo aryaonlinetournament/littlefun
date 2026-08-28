@@ -25,16 +25,16 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isPendingApproval, userStatus } = useAuth();
-  if (isLoading || (user && userStatus === null)) return <div className="app-loading"><div className="spinner" /></div>;
+  const { user, isLoading, isPendingApproval } = useAuth();
+  if (isLoading) return <div className="app-loading"><div className="spinner" /></div>;
   if (!user) return <Navigate to="/login" replace />;
   if (isPendingApproval) return <Navigate to="/pending-verification" replace />;
   return <>{children}</>;
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isPendingApproval, userStatus } = useAuth();
-  if (isLoading || (user && userStatus === null)) return <div className="app-loading"><div className="spinner" /></div>;
+  const { user, isLoading, isPendingApproval } = useAuth();
+  if (isLoading) return <div className="app-loading"><div className="spinner" /></div>;
   if (user) {
     if (isPendingApproval) return <Navigate to="/pending-verification" replace />;
     return <Navigate to="/discover" replace />;
