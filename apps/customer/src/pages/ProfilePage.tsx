@@ -43,7 +43,7 @@ export default function ProfilePage() {
   const primaryPhoto = profile?.profile_photos?.find((p) => p.is_primary) ?? profile?.profile_photos?.[0];
 
   const userEmail = (profile?.email as string) || profile?.users?.email || user?.email || '';
-  const userPhone = (profile?.phone_number as string) || profile?.users?.phone || user?.phoneNumber || '';
+  const userPhone = (profile?.phone_number as string) || (profile as any)?.phone || profile?.users?.phone || user?.phoneNumber || '';
   const rawName = (profile?.display_name as string) || user?.displayName || (userEmail ? userEmail.split('@')[0] : '');
   const userDisplayName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : 'Your Name';
 
@@ -620,6 +620,23 @@ export default function ProfilePage() {
         ) : (
           <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
             <div className="card-body">
+              {/* Personal Details Grid (Age, Gender, Location) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 'var(--space-md)' }}>
+                <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>🎂 Age & Gender</div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--color-text)', marginTop: 2 }}>
+                    {profile?.age ? `${String(profile.age)} Yrs` : '24 Yrs'} · {profile?.gender === 'MALE' ? 'Male 👨' : profile?.gender === 'FEMALE' ? 'Female 👩' : String(profile?.gender || 'Male 👨')}
+                  </div>
+                </div>
+
+                <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>📍 Location</div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--color-text)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {(profile?.city as string) || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'Mumbai, Maharashtra'}
+                  </div>
+                </div>
+              </div>
+
               {Boolean(profile?.bio) && (
                 <div style={{ marginBottom: 'var(--space-md)' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-3)', marginBottom: 6, letterSpacing: '0.5px' }}>ABOUT</div>

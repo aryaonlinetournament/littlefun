@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../lib/api';
 
@@ -16,11 +16,11 @@ interface Achiever {
 }
 
 const DEFAULT_ADMIN_ACHIEVERS: Achiever[] = [
-  { id: 'ach-1', rank_num: 1, name: 'Priya Sharma', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop', city: 'Delhi NCR', meetups_count: '34 Meetups', rating: '4.9 ★', earnings_amount: '₹1,50,000', is_active: true, created_at: new Date().toISOString() },
-  { id: 'ach-2', rank_num: 2, name: 'Meera Nair', avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&q=80&auto=format&fit=crop', city: 'Mumbai', meetups_count: '47 Meetups', rating: '5.0 ★', earnings_amount: '₹1,25,000', is_active: true, created_at: new Date().toISOString() },
-  { id: 'ach-3', rank_num: 3, name: 'Ananya Patel', avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&q=80&auto=format&fit=crop', city: 'Gurgaon', meetups_count: '22 Meetups', rating: '4.8 ★', earnings_amount: '₹98,000', is_active: true, created_at: new Date().toISOString() },
-  { id: 'ach-4', rank_num: 4, name: 'Simran Kaur', avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80&auto=format&fit=crop', city: 'Chandigarh', meetups_count: '19 Meetups', rating: '4.9 ★', earnings_amount: '₹85,000', is_active: true, created_at: new Date().toISOString() },
-  { id: 'ach-5', rank_num: 5, name: 'Riya Sen', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80&auto=format&fit=crop', city: 'Bengaluru', meetups_count: '28 Meetups', rating: '4.7 ★', earnings_amount: '₹76,000', is_active: true, created_at: new Date().toISOString() },
+  { id: 'ach-1', rank_num: 1, name: 'Priya Sharma', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop', city: 'Delhi NCR', meetups_count: '34 Meets Completed', rating: '4.9 ★', earnings_amount: '34 Meets', is_active: true, created_at: new Date().toISOString() },
+  { id: 'ach-2', rank_num: 2, name: 'Meera Nair', avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&q=80&auto=format&fit=crop', city: 'Mumbai', meetups_count: '47 Meets Completed', rating: '5.0 ★', earnings_amount: '47 Meets', is_active: true, created_at: new Date().toISOString() },
+  { id: 'ach-3', rank_num: 3, name: 'Ananya Patel', avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&q=80&auto=format&fit=crop', city: 'Gurgaon', meetups_count: '22 Meets Completed', rating: '4.8 ★', earnings_amount: '22 Meets', is_active: true, created_at: new Date().toISOString() },
+  { id: 'ach-4', rank_num: 4, name: 'Simran Kaur', avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80&auto=format&fit=crop', city: 'Chandigarh', meetups_count: '19 Meets Completed', rating: '4.9 ★', earnings_amount: '19 Meets', is_active: true, created_at: new Date().toISOString() },
+  { id: 'ach-5', rank_num: 5, name: 'Riya Sen', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80&auto=format&fit=crop', city: 'Bengaluru', meetups_count: '28 Meets Completed', rating: '4.7 ★', earnings_amount: '28 Meets', is_active: true, created_at: new Date().toISOString() },
 ];
 
 export default function AchieversPage() {
@@ -32,7 +32,7 @@ export default function AchieversPage() {
   const [formName, setFormName] = useState('');
   const [formCity, setFormCity] = useState('');
   const [formEarnings, setFormEarnings] = useState('');
-  const [formMeetups, setFormMeetups] = useState('20 Meetups');
+  const [formMeetups, setFormMeetups] = useState('20 Meets Completed');
   const [formRating, setFormRating] = useState('4.9 ★');
   const [formRank, setFormRank] = useState(1);
   const [formAvatar, setFormAvatar] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop');
@@ -50,8 +50,8 @@ export default function AchieversPage() {
     setEditingAchiever(null);
     setFormName('');
     setFormCity('');
-    setFormEarnings('₹1,00,000');
-    setFormMeetups('25 Meetups');
+    setFormEarnings('25 Meets');
+    setFormMeetups('25 Meets Completed');
     setFormRating('4.9 ★');
     setFormRank((achieversList.length || 0) + 1);
     setFormAvatar('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop');
@@ -128,8 +128,8 @@ export default function AchieversPage() {
                 <th>Companion</th>
                 <th>City / Location</th>
                 <th>Meetups Count</th>
+                <th>Monthly Completed Meets</th>
                 <th>Rating</th>
-                <th>Monthly Earnings</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -154,8 +154,8 @@ export default function AchieversPage() {
                   </td>
                   <td>📍 {achiever.city}</td>
                   <td>{achiever.meetups_count}</td>
-                  <td><span style={{ color: '#D97706', fontWeight: 700 }}>{achiever.rating}</span></td>
                   <td><strong style={{ color: '#16A34A', fontSize: '0.95rem' }}>{achiever.earnings_amount}</strong></td>
+                  <td><span style={{ color: '#D97706', fontWeight: 700 }}>{achiever.rating}</span></td>
                   <td>
                     <span className={`badge ${achiever.is_active ? 'badge-success' : 'badge-neutral'}`}>
                       {achiever.is_active ? 'Active' : 'Hidden'}
@@ -238,11 +238,11 @@ export default function AchieversPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Monthly Earnings</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Monthly Completed Meets</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="e.g. ₹1,50,000"
+                    placeholder="e.g. 34 Meets"
                     value={formEarnings}
                     onChange={(e) => setFormEarnings(e.target.value)}
                     required

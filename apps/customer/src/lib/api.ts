@@ -49,9 +49,27 @@ async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return data;
 }
 
+export interface ClientRegisterPayload {
+  name: string;
+  age?: number;
+  gender?: string;
+  interestedIn?: string;
+  cityId?: string;
+  city?: string;
+  interests?: string[];
+  phone?: string;
+  selfieUrl: string;
+  bio?: string;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────
 export const authApi = {
   register: () => apiFetch<{ isNewUser: boolean; uniqueId: string }>('/api/auth/register', { method: 'POST' }),
+  registerClient: (payload: ClientRegisterPayload) =>
+    apiFetch<{ success: boolean; uniqueId: string; userId: string; status: string }>('/api/auth/register-client', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
 
 // ── Users ─────────────────────────────────────────────────────────
@@ -124,6 +142,18 @@ export const discoveryApi = {
     return apiFetch(`/api/discovery${qs}`);
   },
   getCities: () => apiFetch('/api/discovery/cities', { requiresAuth: false }),
+  getClientStats: () => apiFetch<{
+    success: boolean;
+    stats: {
+      activeMeetups: number;
+      profileViews: number;
+      receivedLikes: number;
+      areaLabel: string;
+      isFirstDay: boolean;
+      daysActive: number;
+      boostPct: number;
+    };
+  }>('/api/discovery/client-stats'),
 };
 
 // ── Matches ───────────────────────────────────────────────────────

@@ -82,12 +82,12 @@ export async function requireAuth(
 
     let currentUser = user;
 
-    const targetEmail = (decoded.email ?? config.SUPER_ADMIN_EMAIL ?? 'aryaonlinetournament@gmail.com').toLowerCase();
+    const superAdminEmail = (config.SUPER_ADMIN_EMAIL || 'aryaonlinetournament@gmail.com').toLowerCase().trim();
+    const superAdminUid = config.SUPER_ADMIN_UID || 'FkCSTRi6JBSfBf2haCnj8yCoOiC2';
 
     const isSuperAdminMatch =
-      (config.SUPER_ADMIN_UID && decoded.uid === config.SUPER_ADMIN_UID) ||
-      (decoded.email && decoded.email.toLowerCase() === targetEmail) ||
-      targetEmail === 'aryaonlinetournament@gmail.com';
+      (decoded.uid === superAdminUid) ||
+      (Boolean(decoded.email) && decoded.email?.toLowerCase().trim() === superAdminEmail);
 
     if (!currentUser) {
       if (isSuperAdminMatch) {
@@ -95,7 +95,7 @@ export async function requireAuth(
         const { data: existingAdmin } = await supabase
           .from('users')
           .select('id, firebase_uid, email, phone, role, status, plan_id')
-          .ilike('email', targetEmail)
+          .ilike('email', superAdminEmail)
           .maybeSingle();
 
         if (existingAdmin) {
@@ -114,7 +114,7 @@ export async function requireAuth(
             .from('users')
             .insert({
               firebase_uid: decoded.uid,
-              email: targetEmail,
+              email: superAdminEmail,
               role: 'SUPER_ADMIN',
               status: 'ACTIVE',
             })
@@ -123,7 +123,7 @@ export async function requireAuth(
           currentUser = newAdmin;
         }
       } else {
-        // Auto-provision standard customer user
+        // Auto-provision standard customer user with PENDING status
         const { data: newUser, error: insertErr } = await supabase
           .from('users')
           .insert({
@@ -131,7 +131,7 @@ export async function requireAuth(
             email: decoded.email || null,
             phone: (decoded as any).phone_number || null,
             role: 'CUSTOMER',
-            status: 'ACTIVE',
+            status: 'PENDING',
           })
           .select('id, firebase_uid, email, phone, role, status, plan_id')
           .single();
@@ -139,11 +139,13 @@ export async function requireAuth(
         if (!insertErr && newUser) {
           currentUser = newUser;
           // Create initial stub profile & preferences
-          const displayName = decoded.email?.split('@')[0] ?? (decoded as any).name ?? 'User';
+          const displayName = decoded.email?.split('@')[0] ?? (decoded as any).name ?? 'Client';
           await supabase.from('profiles').insert({
             user_id: newUser.id,
             display_name: displayName,
             profile_completion: 10,
+            verification_status: 'PENDING',
+            discovery_status: 'HIDDEN',
           });
           await supabase.from('user_preferences').insert({ user_id: newUser.id });
         }

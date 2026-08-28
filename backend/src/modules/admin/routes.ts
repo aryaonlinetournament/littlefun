@@ -4,7 +4,6 @@ import { requireAuth, requireAdmin, requireSuperAdmin } from '../../middleware/a
 import { validateBody } from '../../middleware/validation';
 import { getSupabaseAdmin } from '../../services/supabase/supabaseClient';
 import { AuditService, hashIp } from '../../services/AuditService';
-import { NotFoundError } from '../../middleware/errorHandler';
 import { NotificationService } from '../../services/notifications/NotificationService';
 
 export const adminRouter = Router();
@@ -149,23 +148,84 @@ adminRouter.post(
 // ── GET /api/admin/verification-queue ─────────────────────────────
 adminRouter.get('/verification-queue', async (_req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+
+  // 1. Fetch from profile_verifications table
+  const { data: verifsData, error: verifsErr } = await supabase
     .from('profile_verifications')
     .select(`
       id, profile_id, document_type, document_url, selfie_url, id_document_url,
       status, submitted_at, rejection_reason,
-      profiles(display_name, user_id, city_id, profile_photos(url, is_primary))
+      profiles(
+        id, display_name, user_id, age, gender, interests, bio, city_id,
+        users(id, unique_id, email, phone, status, role),
+        profile_photos(url, is_primary)
+      )
     `)
     .eq('status', 'PENDING')
-    .order('submitted_at', { ascending: true });
+    .order('submitted_at', { ascending: false });
 
-  if (error) throw error;
+  if (verifsErr) throw verifsErr;
 
-  // Normalise: ensure selfie_url is always populated regardless of column name used
-  const verifications = (data ?? []).map((v: Record<string, unknown>) => ({
+  const verifications: any[] = (verifsData ?? []).map((v: Record<string, unknown>) => ({
     ...v,
     selfie_url: (v.selfie_url ?? v.document_url) as string | null,
   }));
+
+  const trackedProfileIds = new Set(verifications.map((v) => v.profile_id).filter(Boolean));
+
+  // 2. Fetch any pending clients/users that do not have an active verification row yet
+  const { data: pendingUsers } = await supabase
+    .from('users')
+    .select(`
+      id, unique_id, email, phone, status, role, created_at,
+      profiles(
+        id, display_name, user_id, age, gender, interests, bio, city_id, verification_status,
+        profile_photos(url, is_primary)
+      )
+    `)
+    .eq('status', 'PENDING')
+    .neq('role', 'SUPER_ADMIN')
+    .neq('role', 'ADMIN');
+
+  if (pendingUsers) {
+    for (const u of pendingUsers) {
+      const p = (Array.isArray(u.profiles) ? u.profiles[0] : u.profiles) as any;
+      if (p && !trackedProfileIds.has(p.id)) {
+        trackedProfileIds.add(p.id);
+        const primaryPhoto = p.profile_photos?.find((ph: any) => ph.is_primary)?.url || p.profile_photos?.[0]?.url || null;
+        verifications.push({
+          id: p.id,
+          profile_id: p.id,
+          document_type: 'SELFIE',
+          document_url: primaryPhoto,
+          selfie_url: primaryPhoto,
+          id_document_url: null,
+          status: 'PENDING',
+          submitted_at: u.created_at || new Date().toISOString(),
+          rejection_reason: null,
+          profiles: {
+            id: p.id,
+            display_name: p.display_name || 'Client Application',
+            user_id: u.id,
+            age: p.age,
+            gender: p.gender,
+            interests: p.interests,
+            bio: p.bio,
+            city_id: p.city_id,
+            users: {
+              id: u.id,
+              unique_id: u.unique_id,
+              email: u.email,
+              phone: u.phone,
+              status: u.status,
+              role: u.role,
+            },
+            profile_photos: p.profile_photos || [],
+          },
+        });
+      }
+    }
+  }
 
   res.json({ success: true, verifications, total: verifications.length });
 });
@@ -173,89 +233,106 @@ adminRouter.get('/verification-queue', async (_req: Request, res: Response) => {
 // ── POST /api/admin/verification-queue/:id/approve ────────────────
 adminRouter.post('/verification-queue/:id/approve', async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
+  const targetId = req.params.id;
 
+  // 1. Try finding in profile_verifications
   const { data: verif } = await supabase
     .from('profile_verifications')
     .select('id, profile_id')
-    .eq('id', req.params.id)
-    .single();
+    .eq('id', targetId)
+    .maybeSingle();
 
-  if (!verif) throw new NotFoundError('Verification request');
+  let profileId = verif?.profile_id;
 
-  await supabase
-    .from('profile_verifications')
-    .update({ status: 'APPROVED', reviewed_by: req.user!.id, reviewed_at: new Date().toISOString() })
-    .eq('id', req.params.id);
+  if (verif) {
+    await supabase
+      .from('profile_verifications')
+      .update({ status: 'APPROVED', reviewed_by: req.user!.id, reviewed_at: new Date().toISOString() })
+      .eq('id', targetId);
+  } else {
+    // If targetId is profile_id
+    profileId = targetId;
+    await supabase
+      .from('profile_verifications')
+      .update({ status: 'APPROVED', reviewed_by: req.user!.id, reviewed_at: new Date().toISOString() })
+      .eq('profile_id', profileId);
+  }
 
-  await supabase
-    .from('profiles')
-    .update({ verification_status: 'APPROVED' })
-    .eq('id', verif.profile_id);
+  if (profileId) {
+    await supabase
+      .from('profiles')
+      .update({ verification_status: 'APPROVED', discovery_status: 'VISIBLE' })
+      .eq('id', profileId);
 
-  // Get user_id for notification
-  const { data: profile } = await supabase.from('profiles').select('user_id').eq('id', verif.profile_id).single();
-  if (profile) {
-    const { NotificationService } = await import('../../services/notifications/NotificationService');
-    await NotificationService.profileVerified(profile.user_id);
+    // Activate user in users table
+    const { data: profile } = await supabase.from('profiles').select('user_id').eq('id', profileId).single();
+    if (profile?.user_id) {
+      await supabase.from('users').update({ status: 'ACTIVE' }).eq('id', profile.user_id);
+      const { NotificationService } = await import('../../services/notifications/NotificationService');
+      await NotificationService.profileVerified(profile.user_id).catch(() => {});
+    }
   }
 
   await AuditService.adminAction({
     actor: req.user!,
     action: 'ADMIN_APPROVED_VERIFICATION',
     entityType: 'profile_verification',
-    entityId: req.params.id,
+    entityId: targetId,
+    newValue: { status: 'APPROVED', profileId },
     ipHash: hashIp(req.ip),
   });
 
-  res.json({ success: true, message: 'Verification approved.' });
+  res.json({ success: true, message: 'Verification approved and user account activated.' });
 });
 
 // ── POST /api/admin/verification-queue/:id/reject ─────────────────
 adminRouter.post(
   '/verification-queue/:id/reject',
-  validateBody(z.object({ reason: z.string().min(5) })),
+  validateBody(z.object({ reason: z.string().min(3) })),
   async (req: Request, res: Response) => {
     const supabase = getSupabaseAdmin();
+    const targetId = req.params.id;
 
-    // Get the profile_id so we can reset its status
     const { data: verif } = await supabase
       .from('profile_verifications')
       .select('id, profile_id')
-      .eq('id', req.params.id)
-      .single();
+      .eq('id', targetId)
+      .maybeSingle();
 
-    await supabase
-      .from('profile_verifications')
-      .update({
-        status: 'REJECTED',
-        reviewed_by: req.user!.id,
-        reviewed_at: new Date().toISOString(),
-        rejection_reason: req.body.reason,
-      })
-      .eq('id', req.params.id);
+    const profileId = verif?.profile_id || targetId;
 
-    // Reset profile verification_status so customer can resubmit
-    if (verif?.profile_id) {
+    if (verif) {
+      await supabase
+        .from('profile_verifications')
+        .update({
+          status: 'REJECTED',
+          reviewed_by: req.user!.id,
+          reviewed_at: new Date().toISOString(),
+          rejection_reason: req.body.reason,
+        })
+        .eq('id', targetId);
+    }
+
+    if (profileId) {
       await supabase
         .from('profiles')
         .update({ verification_status: 'UNVERIFIED' })
-        .eq('id', verif.profile_id);
+        .eq('id', profileId);
 
-      // Notify customer of rejection
       const { data: profile } = await supabase
         .from('profiles')
         .select('user_id')
-        .eq('id', verif.profile_id)
+        .eq('id', profileId)
         .single();
 
       if (profile?.user_id) {
         await NotificationService.send({
           userId: profile.user_id,
-          type: 'PROFILE_VERIFIED' as Parameters<typeof NotificationService.send>[0]['type'],
-          title: '⚠️ Verification Rejected',
+          type: 'SYSTEM_ANNOUNCEMENT',
+          title: '⚠️ Verification Status Update',
           body: req.body.reason,
           data: { type: 'VERIFICATION_REJECTED' },
-        });
+        }).catch(() => {});
       }
     }
 
@@ -263,8 +340,8 @@ adminRouter.post(
       actor: req.user!,
       action: 'ADMIN_REJECTED_VERIFICATION',
       entityType: 'profile_verification',
-      entityId: req.params.id,
-      note: req.body.reason,
+      entityId: targetId,
+      newValue: { reason: req.body.reason, profileId },
       ipHash: hashIp(req.ip),
     });
 
@@ -453,3 +530,153 @@ adminRouter.delete('/banners/:id', requireSuperAdmin, async (req, res) => {
   if (error) throw error;
   res.json({ success: true, message: 'Banner deleted.' });
 });
+
+// ── GET /api/admin/meetups-config ─────────────────────────────────
+adminRouter.get('/meetups-config', async (_req: Request, res: Response) => {
+  const supabase = getSupabaseAdmin();
+  const { ClientStatsService } = await import('../../services/stats/ClientStatsService');
+
+  const autoSaturdayCount = ClientStatsService.generateSaturdayWeeklyNumber();
+
+  const { data: configRow } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'weekly_meetups_override')
+    .maybeSingle();
+
+  const config = (configRow?.value || {}) as {
+    manual_override?: number | null;
+    city_overrides?: Record<string, number>;
+  };
+
+  const effectiveCount = await ClientStatsService.getWeeklyActiveMeetups();
+
+  res.json({
+    success: true,
+    autoSaturdayCount,
+    manualOverride: config.manual_override ?? null,
+    cityOverrides: config.city_overrides ?? {},
+    effectiveCount,
+  });
+});
+
+// ── POST /api/admin/meetups-config ────────────────────────────────
+adminRouter.post(
+  '/meetups-config',
+  validateBody(z.object({
+    manualOverride: z.union([z.number().int().min(1).max(999), z.null()]),
+    cityOverrides: z.record(z.string(), z.number().int()).optional(),
+  })),
+  async (req: Request, res: Response) => {
+    const supabase = getSupabaseAdmin();
+    const { manualOverride, cityOverrides = {} } = req.body;
+
+    const value = {
+      manual_override: manualOverride,
+      city_overrides: cityOverrides,
+      updated_at: new Date().toISOString(),
+      updated_by: req.user!.id,
+    };
+
+    const { error } = await supabase.from('app_config').upsert({
+      key: 'weekly_meetups_override',
+      value,
+      description: 'Weekly ongoing meetups configuration (auto Saturday 10-99 with manual override)',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
+
+    if (error) throw error;
+
+    await AuditService.adminAction({
+      actor: req.user!,
+      action: 'ADMIN_UPDATED_MEETUPS_CONFIG',
+      entityType: 'app_config',
+      newValue: value,
+      ipHash: hashIp(req.ip),
+    });
+
+    res.json({ success: true, message: 'Ongoing meetups configuration saved.', config: value });
+  }
+);
+
+// ── GET /api/admin/users/:id/boost ────────────────────────────────
+adminRouter.get('/users/:id/boost', async (req: Request, res: Response) => {
+  const supabase = getSupabaseAdmin();
+
+  const { data: boostRow } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'user_stats_boosts')
+    .maybeSingle();
+
+  const boosts = (boostRow?.value || {}) as Record<string, {
+    boost_pct?: number;
+    manual_views?: number;
+    manual_likes?: number;
+  }>;
+
+  const userBoost = boosts[req.params.id] || { boost_pct: 0, manual_views: null, manual_likes: null };
+
+  res.json({
+    success: true,
+    userId: req.params.id,
+    boost: userBoost,
+  });
+});
+
+// ── POST /api/admin/users/:id/boost ───────────────────────────────
+adminRouter.post(
+  '/users/:id/boost',
+  validateBody(z.object({
+    boostPct: z.number().min(0).max(1000).optional(),
+    manualViews: z.union([z.number().int().min(0), z.null()]).optional(),
+    manualLikes: z.union([z.number().int().min(0), z.null()]).optional(),
+  })),
+  async (req: Request, res: Response) => {
+    const supabase = getSupabaseAdmin();
+    const targetUserId = req.params.id;
+    const { boostPct = 0, manualViews = null, manualLikes = null } = req.body;
+
+    const { data: boostRow } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'user_stats_boosts')
+      .maybeSingle();
+
+    const boosts = (boostRow?.value || {}) as Record<string, {
+      boost_pct?: number;
+      manual_views?: number;
+      manual_likes?: number;
+    }>;
+
+    boosts[targetUserId] = {
+      boost_pct: boostPct,
+      manual_views: manualViews,
+      manual_likes: manualLikes,
+    };
+
+    const { error } = await supabase.from('app_config').upsert({
+      key: 'user_stats_boosts',
+      value: boosts,
+      description: 'Admin custom profile view boost % and manual stats overrides per client',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
+
+    if (error) throw error;
+
+    await AuditService.adminAction({
+      actor: req.user!,
+      action: 'ADMIN_BOOSTED_USER_STATS',
+      entityType: 'user',
+      entityId: targetUserId,
+      newValue: boosts[targetUserId],
+      ipHash: hashIp(req.ip),
+    });
+
+    res.json({
+      success: true,
+      message: 'Client stats boost saved successfully.',
+      boost: boosts[targetUserId],
+    });
+  }
+);

@@ -140,6 +140,26 @@ export const adminApi = {
     adminFetch(`/api/admin/banners/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBanner: (id: string) =>
     adminFetch(`/api/admin/banners/${id}`, { method: 'DELETE' }),
+
+  // Weekly Ongoing Meetups Configuration
+  getMeetupsConfig: () => adminFetch<{
+    success: boolean;
+    autoSaturdayCount: number;
+    manualOverride: number | null;
+    cityOverrides: Record<string, number>;
+    effectiveCount: number;
+  }>('/api/admin/meetups-config'),
+  updateMeetupsConfig: (data: { manualOverride: number | null; cityOverrides?: Record<string, number> }) =>
+    adminFetch('/api/admin/meetups-config', { method: 'POST', body: JSON.stringify(data) }),
+
+  // User Stats Boost % and Manual Overrides
+  getUserBoost: (userId: string) => adminFetch<{
+    success: boolean;
+    userId: string;
+    boost: { boost_pct: number; manual_views: number | null; manual_likes: number | null };
+  }>(`/api/admin/users/${userId}/boost`),
+  setUserBoost: (userId: string, data: { boostPct?: number; manualViews?: number | null; manualLikes?: number | null }) =>
+    adminFetch(`/api/admin/users/${userId}/boost`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export default adminFetch;

@@ -134,3 +134,32 @@ discoveryRouter.get('/cities', requireAuth, async (_req: Request, res: Response)
   if (error) throw error;
   res.json({ success: true, cities: data });
 });
+
+/**
+ * GET /api/discovery/client-stats
+ * Returns active ongoing meetups, personalized profile views (0 initial, +2% daily, +10% Sun),
+ * and received likes for the current client.
+ */
+discoveryRouter.get('/client-stats', requireAuth, async (req: Request, res: Response) => {
+  const user = req.user!;
+  const supabase = getSupabaseAdmin();
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('city_id, created_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const { ClientStatsService } = await import('../../services/stats/ClientStatsService');
+
+  const stats = await ClientStatsService.calculateClientStats(
+    user.id,
+    profile?.created_at,
+    profile?.city_id
+  );
+
+  res.json({
+    success: true,
+    stats,
+  });
+});

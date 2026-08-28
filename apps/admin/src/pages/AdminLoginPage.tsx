@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     setError('');
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email.trim().toLowerCase(), password);
       navigate('/dashboard');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';

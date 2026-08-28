@@ -16,7 +16,8 @@ usersRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
     .from('users')
     .select(`
       id, firebase_uid, email, phone, role, status, unique_id, plan_id, created_at, last_active_at,
-      plans(name, display_name, chat_enabled, advanced_filters, priority_matching, max_discovery_profiles, max_requests)
+      plans(name, display_name, chat_enabled, advanced_filters, priority_matching, max_discovery_profiles, max_requests),
+      profiles(id, display_name, verification_status, discovery_status, profile_completion, age, gender, interests, bio)
     `)
     .eq('id', req.user!.id)
     .single();
@@ -186,7 +187,7 @@ usersRouter.patch(
   '/:id/status',
   requireAuth,
   requireAdmin,
-  validateBody(z.object({ status: z.enum(['ACTIVE', 'SUSPENDED', 'BANNED', 'DELETED']) })),
+  validateBody(z.object({ status: z.enum(['ACTIVE', 'SUSPENDED', 'BANNED', 'DELETED', 'PENDING']) })),
   async (req: Request, res: Response) => {
     const supabase = getSupabaseAdmin();
     const { data: current } = await supabase.from('users').select('status').eq('id', req.params.id).single();
@@ -200,6 +201,32 @@ usersRouter.patch(
       .single();
 
     if (error) throw error;
+
+    // Synchronize profile verification and discovery status
+    if (req.body.status === 'ACTIVE') {
+      await supabase
+        .from('profiles')
+        .update({ verification_status: 'APPROVED', discovery_status: 'VISIBLE' })
+        .eq('user_id', req.params.id);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', req.params.id)
+        .maybeSingle();
+
+      if (profile) {
+        await supabase
+          .from('profile_verifications')
+          .update({ status: 'APPROVED', reviewed_by: req.user!.id, reviewed_at: new Date().toISOString() })
+          .eq('profile_id', profile.id);
+      }
+    } else if (req.body.status === 'SUSPENDED' || req.body.status === 'BANNED') {
+      await supabase
+        .from('profiles')
+        .update({ discovery_status: 'HIDDEN' })
+        .eq('user_id', req.params.id);
+    }
 
     await AuditService.adminAction({
       actor: req.user!,

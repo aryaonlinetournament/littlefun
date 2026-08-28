@@ -7,7 +7,7 @@ import { getSupabaseAdmin } from '../src/services/supabase/supabaseClient';
 
 async function seedSuperAdminAccount() {
   const email = process.env.SUPER_ADMIN_EMAIL || 'aryaonlinetournament@gmail.com';
-  const password = process.env.SUPER_ADMIN_PASSWORD || 'arya@admin8527';
+  const password = process.env.SUPER_ADMIN_PASSWORD;
   const preferredUid = process.env.SUPER_ADMIN_UID || 'FkCSTRi6JBSfBf2haCnj8yCoOiC2';
 
   console.log(`🔐 Ensuring Super Admin account (${email}) in Firebase Auth & Supabase DB...`);

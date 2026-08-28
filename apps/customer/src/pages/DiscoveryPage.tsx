@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { achieversApi, profilesApi, requestsApi } from '../lib/api';
+import { achieversApi, profilesApi, requestsApi, discoveryApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
@@ -27,11 +27,11 @@ interface AchieverItem {
 }
 
 const DEFAULT_5_ACHIEVERS: AchieverItem[] = [
-  { id: 'ach-1', rank_num: 1, name: 'Priya Sharma', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop', city: 'Delhi NCR', meetups_count: '34 Meetups', rating: '4.9 ★', earnings_amount: '₹1,50,000' },
-  { id: 'ach-2', rank_num: 2, name: 'Meera Nair', avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&q=80&auto=format&fit=crop', city: 'Mumbai', meetups_count: '47 Meetups', rating: '5.0 ★', earnings_amount: '₹1,25,000' },
-  { id: 'ach-3', rank_num: 3, name: 'Ananya Patel', avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&q=80&auto=format&fit=crop', city: 'Gurgaon', meetups_count: '22 Meetups', rating: '4.8 ★', earnings_amount: '₹98,000' },
-  { id: 'ach-4', rank_num: 4, name: 'Simran Kaur', avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80&auto=format&fit=crop', city: 'Chandigarh', meetups_count: '19 Meetups', rating: '4.9 ★', earnings_amount: '₹85,000' },
-  { id: 'ach-5', rank_num: 5, name: 'Riya Sen', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80&auto=format&fit=crop', city: 'Bengaluru', meetups_count: '28 Meetups', rating: '4.7 ★', earnings_amount: '₹76,000' },
+  { id: 'ach-1', rank_num: 1, name: 'Priya Sharma', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop', city: 'Delhi NCR', meetups_count: '34 Meets Completed', rating: '4.9 ★', earnings_amount: '34 Meets' },
+  { id: 'ach-2', rank_num: 2, name: 'Meera Nair', avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&q=80&auto=format&fit=crop', city: 'Mumbai', meetups_count: '47 Meets Completed', rating: '5.0 ★', earnings_amount: '47 Meets' },
+  { id: 'ach-3', rank_num: 3, name: 'Ananya Patel', avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&q=80&auto=format&fit=crop', city: 'Gurgaon', meetups_count: '22 Meets Completed', rating: '4.8 ★', earnings_amount: '22 Meets' },
+  { id: 'ach-4', rank_num: 4, name: 'Simran Kaur', avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80&auto=format&fit=crop', city: 'Chandigarh', meetups_count: '19 Meets Completed', rating: '4.9 ★', earnings_amount: '19 Meets' },
+  { id: 'ach-5', rank_num: 5, name: 'Riya Sen', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80&auto=format&fit=crop', city: 'Bengaluru', meetups_count: '28 Meets Completed', rating: '4.7 ★', earnings_amount: '28 Meets' },
 ];
 
 export default function DiscoveryPage() {
@@ -91,6 +91,20 @@ export default function DiscoveryPage() {
     staleTime: 60 * 1000,
   });
 
+  // Dynamic Client Stats Query (Views 0 on Day 0, +2% daily, +10% Sun, meetups 10-99 weekly Sat)
+  const { data: statsPayload } = useQuery({
+    queryKey: ['client-stats'],
+    queryFn: () => discoveryApi.getClientStats().catch(() => null),
+    staleTime: 30 * 1000,
+  });
+
+  const clientStats = statsPayload?.stats || {
+    activeMeetups: 18,
+    profileViews: 0,
+    receivedLikes: 0,
+    areaLabel: 'In your area',
+  };
+
   const achieversList: AchieverItem[] = (fetchedAchievers && fetchedAchievers.length > 0)
     ? fetchedAchievers.slice(0, 5)
     : DEFAULT_5_ACHIEVERS;
@@ -108,13 +122,17 @@ export default function DiscoveryPage() {
       <Header />
 
       <div className="page-content" style={{ paddingBottom: 'calc(var(--bottom-nav-height) + 16px)' }}>
-
-        {/* Dynamic Greeting Banner */}
+        {/* Personalized Welcome Banner */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 14px',
           background: '#FFFFFF',
-          padding: '12px 16px', borderRadius: '14px', marginBottom: 12,
-          border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          borderRadius: '14px',
+          marginBottom: 10,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -136,10 +154,10 @@ export default function DiscoveryPage() {
               ⚡ Ongoing Meetups
             </div>
             <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#8B5CF6', marginTop: 1 }}>
-              14 Active
+              {clientStats.activeMeetups} Active
             </div>
             <div style={{ fontSize: '0.62rem', color: '#8B5CF6', fontWeight: 600, marginTop: 1, whiteSpace: 'nowrap' }}>
-              In your area
+              {clientStats.areaLabel || 'In your area'}
             </div>
           </div>
 
@@ -148,7 +166,7 @@ export default function DiscoveryPage() {
               👀 Profile Views
             </div>
             <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0EA5E9', marginTop: 1 }}>
-              284 Views
+              {clientStats.profileViews} Views
             </div>
             <div style={{ fontSize: '0.62rem', color: '#0EA5E9', fontWeight: 600, marginTop: 1, whiteSpace: 'nowrap' }}>
               Last 7 days
@@ -160,7 +178,7 @@ export default function DiscoveryPage() {
               ❤️ Received Likes
             </div>
             <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#EC4899', marginTop: 1 }}>
-              42 Likes
+              {clientStats.receivedLikes} Likes
             </div>
             <div style={{ fontSize: '0.62rem', color: '#EC4899', fontWeight: 600, marginTop: 1, whiteSpace: 'nowrap' }}>
               New connections
@@ -222,13 +240,18 @@ export default function DiscoveryPage() {
                       <span style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: 800 }}>✓</span>
                     </div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--color-text-3)', marginTop: 2 }}>
-                      📍 {achiever.city} · {achiever.meetups_count} · <span style={{ color: '#D97706', fontWeight: 700 }}>{achiever.rating}</span>
+                      📍 {achiever.city} · <span style={{ color: '#D97706', fontWeight: 700 }}>{achiever.rating}</span>
                     </div>
                   </div>
 
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontWeight: 900, fontSize: '0.92rem', color: '#16A34A', letterSpacing: '-0.01em' }}>
-                      {achiever.earnings_amount}
+                    <div style={{ fontWeight: 900, fontSize: '0.88rem', color: '#16A34A', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+                      {achiever.earnings_amount?.includes('₹')
+                        ? `${achiever.meetups_count?.replace(/[^0-9]/g, '') || '25'} Meets`
+                        : (achiever.earnings_amount || achiever.meetups_count || '25 Meets')}
+                    </div>
+                    <div style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, marginTop: 1 }}>
+                      This Month
                     </div>
                     <button
                       className="btn btn-primary btn-xs"

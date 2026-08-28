@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Pages
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import PendingVerificationPage from './pages/PendingVerificationPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DiscoveryPage from './pages/DiscoveryPage';
 import ChatPage from './pages/ChatPage';
@@ -23,16 +25,20 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <div className="app-loading"><div className="spinner" /></div>;
+  const { user, isLoading, isPendingApproval, userStatus } = useAuth();
+  if (isLoading || (user && userStatus === null)) return <div className="app-loading"><div className="spinner" /></div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (isPendingApproval) return <Navigate to="/pending-verification" replace />;
   return <>{children}</>;
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <div className="app-loading"><div className="spinner" /></div>;
-  if (user) return <Navigate to="/discover" replace />;
+  const { user, isLoading, isPendingApproval, userStatus } = useAuth();
+  if (isLoading || (user && userStatus === null)) return <div className="app-loading"><div className="spinner" /></div>;
+  if (user) {
+    if (isPendingApproval) return <Navigate to="/pending-verification" replace />;
+    return <Navigate to="/discover" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -45,6 +51,18 @@ export default function App() {
             <Route
               path="/login"
               element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>}
+            />
+            <Route
+              path="/register"
+              element={<RegisterPage />}
+            />
+            <Route
+              path="/join"
+              element={<Navigate to="/register" replace />}
+            />
+            <Route
+              path="/pending-verification"
+              element={<PendingVerificationPage />}
             />
             <Route
               path="/onboarding"

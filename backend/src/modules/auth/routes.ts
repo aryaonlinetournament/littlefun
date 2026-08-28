@@ -53,11 +53,9 @@ authRouter.post('/register', requireAuth, async (req: Request, res: Response) =>
   // Create default user preferences
   await supabase.from('user_preferences').insert({ user_id: user.id });
 
-  // Auto-promote super admin email
-  if (user.email === 'aryaonlinetournament@gmail.com') {
+  // Auto-promote ONLY super admin email
+  if (user.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com') {
     await supabase.from('users').update({ role: 'SUPER_ADMIN', status: 'ACTIVE' }).eq('id', user.id);
-  } else if (user.status === 'PENDING') {
-    await supabase.from('users').update({ status: 'ACTIVE' }).eq('id', user.id);
   }
 
   const { data: userData } = await supabase.from('users').select('unique_id').eq('id', user.id).single();
@@ -68,6 +66,143 @@ authRouter.post('/register', requireAuth, async (req: Request, res: Response) =>
     profile,
     userId: user.id,
     uniqueId: userData?.unique_id,
+  });
+});
+
+/**
+ * POST /api/auth/register-client
+ * Complete client registration with personal details and photo verification.
+ * Sets account status to PENDING until approved by admin.
+ */
+const registerClientSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  age: z.coerce.number().min(18, 'Must be at least 18 years old').max(100).optional(),
+  gender: z.string().optional(),
+  interestedIn: z.string().optional(),
+  city: z.string().optional(),
+  cityId: z.string().uuid().optional(),
+  interests: z.array(z.string()).optional(),
+  phone: z.string().optional(),
+  selfieUrl: z.string().min(1, 'Verification photo is required'),
+  bio: z.string().optional(),
+});
+
+authRouter.post('/register-client', requireAuth, validateBody(registerClientSchema), async (req: Request, res: Response) => {
+  const supabase = getSupabaseAdmin();
+  const user = req.user!;
+  const { name, age, gender, interestedIn, cityId, interests = [], phone, selfieUrl, bio } = req.body;
+
+  // 1. Ensure user is in PENDING state (unless super admin) and save phone
+  const userUpdates: Record<string, any> = {};
+  if (phone && typeof phone === 'string' && phone.trim().length > 0) {
+    userUpdates.phone = phone.trim();
+  }
+  if (user.role !== 'SUPER_ADMIN') {
+    userUpdates.status = 'PENDING';
+  }
+  if (Object.keys(userUpdates).length > 0) {
+    await supabase.from('users').update(userUpdates).eq('id', user.id);
+  }
+
+  // 2. Check or create/update profile
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  let profileId = existingProfile?.id;
+
+  if (profileId) {
+    await supabase.from('profiles').update({
+      display_name: name,
+      age: age || null,
+      gender: gender || null,
+      interests: interests,
+      bio: bio || `Looking to connect with ${interestedIn || 'people'}.`,
+      city_id: cityId || null,
+      verification_status: 'PENDING',
+      discovery_status: 'HIDDEN',
+      profile_completion: 60,
+    }).eq('id', profileId);
+  } else {
+    const { data: newProfile, error: profileErr } = await supabase.from('profiles').insert({
+      user_id: user.id,
+      display_name: name,
+      age: age || null,
+      gender: gender || null,
+      interests: interests,
+      bio: bio || `Looking to connect with ${interestedIn || 'people'}.`,
+      city_id: cityId || null,
+      verification_status: 'PENDING',
+      discovery_status: 'HIDDEN',
+      profile_completion: 60,
+    }).select('id').single();
+
+    if (profileErr) throw profileErr;
+    profileId = newProfile.id;
+  }
+
+  // 3. Process and upload verification photo to storage if base64
+  let photoUrl = selfieUrl;
+  if (selfieUrl && selfieUrl.startsWith('data:image')) {
+    try {
+      const base64Data = selfieUrl.split(',')[1];
+      const mimeType = selfieUrl.substring(selfieUrl.indexOf(':') + 1, selfieUrl.indexOf(';')) || 'image/jpeg';
+      const ext = mimeType.split('/')[1] || 'jpg';
+      const buffer = Buffer.from(base64Data, 'base64');
+      const filePath = `${profileId}/selfie_${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, buffer, { contentType: mimeType, upsert: true });
+
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+        photoUrl = publicUrl;
+      }
+    } catch (e) {
+      console.warn('Storage upload fallback during registration:', e);
+    }
+  }
+
+  // 4. Insert verification record
+  await supabase.from('profile_verifications').insert({
+    profile_id: profileId,
+    document_type: 'SELFIE',
+    document_url: photoUrl,
+    selfie_url: photoUrl,
+    status: 'PENDING',
+    submitted_at: new Date().toISOString(),
+  });
+
+  // 5. Save photo to profile_photos
+  await supabase.from('profile_photos').insert({
+    profile_id: profileId,
+    url: photoUrl,
+    is_primary: true,
+    sort_order: 0,
+  });
+
+  // 6. Ensure preferences record exists
+  await supabase.from('user_preferences').upsert({
+    user_id: user.id,
+    interested_in_gender: interestedIn || null,
+  }, { onConflict: 'user_id' });
+
+  // 6. Fetch updated user unique ID
+  const { data: freshUser } = await supabase
+    .from('users')
+    .select('id, unique_id, status, email')
+    .eq('id', user.id)
+    .single();
+
+  res.status(201).json({
+    success: true,
+    message: 'Client registration submitted. Awaiting admin verification.',
+    uniqueId: freshUser?.unique_id,
+    userId: user.id,
+    status: 'PENDING',
   });
 });
 

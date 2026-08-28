@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -18,26 +18,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
-      navigate('/discover');
+      const result = await signIn(email, password);
+      if (result?.isPendingApproval) {
+        navigate('/pending-verification', { replace: true });
+      } else {
+        navigate('/discover', { replace: true });
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Authentication failed';
-      if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+      if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential') || msg.includes('INVALID_LOGIN_CREDENTIALS')) {
         setError('Invalid email or password.');
       } else if (msg.includes('too-many-requests')) {
-        setError('Too many attempts. Please wait a moment.');
+        setError('Too many attempts. Please wait a moment and try again.');
+      } else if (msg.includes('network-request-failed')) {
+        setError('Network error: Unable to reach authentication server. If you use Brave browser or an AdBlocker, please disable shields/adblock for localhost and retry.');
       } else {
         setError(msg);
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFillDemo = () => {
-    setEmail('aryaonlinetournament@gmail.com');
-    setPassword('123456');
-    setError('');
   };
 
   return (
@@ -97,19 +97,9 @@ export default function LoginPage() {
           </div>
 
           <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label className="form-label" htmlFor="password">
-                Password
-              </label>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="demo-fill-btn"
-                title="Auto-fill demo test account"
-              >
-                ⚡ Quick Demo Login
-              </button>
-            </div>
+            <label className="form-label" htmlFor="password">
+              Password
+            </label>
             <div className="input-icon-wrapper">
               <span className="input-lead-icon">🔒</span>
               <input
@@ -159,9 +149,28 @@ export default function LoginPage() {
 
         {/* Footer info & security badge */}
         <div className="login-footer">
-          <div className="security-badge">
-            <span className="shield-icon">🛡️</span>
-            <span>256-Bit SSL Encrypted • 100% Confidential</span>
+          <div style={{
+            background: 'rgba(200, 56, 109, 0.08)',
+            border: '1px solid rgba(200, 56, 109, 0.2)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '0.82rem', color: '#6B7280', marginBottom: '4px' }}>
+              Don't have a verified client account?
+            </div>
+            <Link to="/register" style={{
+              color: '#C8386D',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}>
+              Apply for VIP Access &amp; Register ➔
+            </Link>
           </div>
 
           <p className="login-help-text">

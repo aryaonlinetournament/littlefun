@@ -5,15 +5,28 @@ import { adminApi } from '../lib/api';
 type VerifItem = {
   id: string;
   submitted_at: string;
-  // The column is stored as document_url in profile_verifications table
   document_url: string | null;
-  selfie_url: string | null;       // alias if backend renames it
+  selfie_url: string | null;
   id_document_url: string | null;
   rejection_reason: string | null;
   profiles: {
+    id: string;
     display_name: string;
     user_id: string;
-    profile_photos: { url: string; is_primary: boolean }[];
+    age?: number;
+    gender?: string;
+    interests?: string[];
+    bio?: string;
+    city_id?: string;
+    users?: {
+      id: string;
+      unique_id: string | null;
+      email: string | null;
+      phone: string | null;
+      status: string;
+      role: string;
+    } | null;
+    profile_photos?: { url: string; is_primary: boolean }[];
   } | null;
 };
 
@@ -24,10 +37,10 @@ export default function VerificationPage() {
   const [mode, setMode] = useState<'approve' | 'reject' | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['verification-queue'],
     queryFn: () => adminApi.verificationQueue() as Promise<{ verifications: VerifItem[]; total: number }>,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
 
   const items: VerifItem[] = (data as { verifications: VerifItem[] })?.verifications ?? [];
@@ -36,6 +49,7 @@ export default function VerificationPage() {
     mutationFn: (id: string) => adminApi.approveVerification(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['verification-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       setSelected(null);
       setMode(null);
     },
@@ -46,13 +60,13 @@ export default function VerificationPage() {
       adminApi.rejectVerification(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['verification-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       setSelected(null);
       setMode(null);
       setRejectReason('');
     },
   });
 
-  // Helper: get the selfie URL regardless of which column name the backend uses
   const getSelfieUrl = (item: VerifItem): string | null =>
     item.selfie_url ?? item.document_url ?? null;
 
@@ -60,63 +74,84 @@ export default function VerificationPage() {
     <>
       <div className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">Verification Queue</h1>
+          <h1 className="admin-page-title">Client Verification Queue</h1>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: 2 }}>
-            Click the selfie image to zoom, then approve or reject
+            Review submitted selfies &amp; client profiles to verify identity and unlock VIP portal access
           </div>
         </div>
-        <span className="badge badge-warning">{items.length} pending</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+          >
+            {isFetching ? 'Refreshing…' : '🔄 Refresh Queue'}
+          </button>
+          <span className="badge badge-warning" style={{ fontSize: '0.82rem', padding: '6px 12px' }}>
+            {items.length} pending review
+          </span>
+        </div>
       </div>
 
       <div className="admin-page-content">
-        {isLoading ? (
+        {isError ? (
+          <div style={{ padding: '24px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: 8, margin: 20, color: '#f87171' }}>
+            <div style={{ fontWeight: 700, marginBottom: 8, fontSize: '1rem' }}>⚠️ Failed to load verification queue</div>
+            <div style={{ fontSize: '0.88rem', marginBottom: 14 }}>{(error as Error)?.message || 'An unexpected error occurred while fetching the queue.'}</div>
+            <button className="btn btn-sm btn-primary" onClick={() => refetch()}>Retry Loading</button>
+          </div>
+        ) : (isLoading && !data) ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
             <div className="spinner" style={{ margin: '0 auto' }} />
           </div>
         ) : items.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">✅</div>
-            <div className="empty-title">Queue is empty</div>
-            <div className="empty-body">All verification requests have been reviewed.</div>
+            <div className="empty-title">Verification queue is clear</div>
+            <div className="empty-body">All submitted client verification applications have been reviewed.</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
             {items.map((item: VerifItem) => {
-              const profilePhoto = item.profiles?.profile_photos?.find((p) => p.is_primary)?.url
-                ?? item.profiles?.profile_photos?.[0]?.url;
               const selfieUrl = getSelfieUrl(item);
+              const userObj = item.profiles?.users;
+              const profile = item.profiles;
 
               return (
-                <div key={item.id} className="admin-table-wrap" style={{ overflow: 'hidden' }}>
-                  <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div key={item.id} className="admin-table-wrap" style={{ overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-                    {/* Header: avatar + name */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      {profilePhoto ? (
-                        <img
-                          src={profilePhoto}
-                          alt=""
-                          style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }}
-                        />
-                      ) : (
-                        <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
-                          👤
-                        </div>
-                      )}
+                    {/* Header: Name, Unique ID & timestamp */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                          {item.profiles?.display_name ?? 'Unknown User'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-1)' }}>
+                            {profile?.display_name ?? 'Client'}
+                          </span>
+                          <span style={{
+                            fontFamily: 'monospace',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: 'var(--primary)',
+                            background: 'var(--surface-2)',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                          }}>
+                            {userObj?.unique_id || 'ID Pending'}
+                          </span>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>
-                          📅 Submitted{' '}
-                          {new Date(item.submitted_at).toLocaleDateString('en-IN', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                          })}
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', marginTop: 3 }}>
+                          ✉️ {userObj?.email || 'No email provided'}
                         </div>
                       </div>
+                      <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                        ⏳ Pending
+                      </span>
                     </div>
 
-                    {/* Selfie preview — CLICK TO ZOOM + APPROVE */}
+                    {/* Selfie Image Card with Click to Zoom */}
                     {selfieUrl ? (
                       <div style={{ position: 'relative' }}>
                         <img
@@ -125,7 +160,7 @@ export default function VerificationPage() {
                           onClick={() => setLightbox(selfieUrl)}
                           style={{
                             width: '100%',
-                            height: 200,
+                            height: 220,
                             objectFit: 'cover',
                             borderRadius: 'var(--radius-md)',
                             border: '2px solid var(--border)',
@@ -133,59 +168,93 @@ export default function VerificationPage() {
                             display: 'block',
                             transition: 'transform 0.15s, box-shadow 0.15s',
                           }}
-                          onMouseEnter={(e) => {
-                            (e.target as HTMLImageElement).style.transform = 'scale(1.02)';
-                            (e.target as HTMLImageElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.target as HTMLImageElement).style.transform = 'scale(1)';
-                            (e.target as HTMLImageElement).style.boxShadow = 'none';
-                          }}
                         />
                         <div style={{
-                          position: 'absolute', bottom: 8, right: 8,
-                          background: 'rgba(0,0,0,0.55)', color: 'white',
-                          fontSize: '0.68rem', padding: '3px 8px', borderRadius: 99,
+                          position: 'absolute', bottom: 10, right: 10,
+                          background: 'rgba(0,0,0,0.65)', color: 'white',
+                          fontSize: '0.7rem', padding: '4px 10px', borderRadius: 99,
                           pointerEvents: 'none',
+                          backdropFilter: 'blur(4px)',
                         }}>
-                          🔍 Click to zoom
+                          🔍 Click to view full image
                         </div>
                       </div>
                     ) : (
                       <div style={{
-                        height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        height: 140, display: 'flex', flexDirection: 'column', alignItems: 'center',
                         justifyContent: 'center', background: 'var(--surface-2)',
                         borderRadius: 'var(--radius-md)', border: '2px dashed var(--border)',
                         color: 'var(--text-3)', gap: 6,
                       }}>
                         <span style={{ fontSize: '2rem' }}>📷</span>
-                        <span style={{ fontSize: '0.78rem' }}>No selfie image found</span>
+                        <span style={{ fontSize: '0.8rem' }}>No selfie image uploaded</span>
                       </div>
                     )}
 
-                    {/* Quick approve directly on image click notice */}
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', textAlign: 'center', marginTop: -4 }}>
-                      Review the selfie carefully before approving
+                    {/* Profile Metadata: Age, Gender, Interests */}
+                    <div style={{
+                      background: 'var(--surface-2)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      fontSize: '0.82rem',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-3)' }}>Age &amp; Gender:</span>
+                        <span style={{ fontWeight: 600 }}>
+                          {profile?.age ? `${profile.age} yrs` : 'Not specified'} • {profile?.gender || 'N/A'}
+                        </span>
+                      </div>
+                      {profile?.interests && profile.interests.length > 0 && (
+                        <div>
+                          <div style={{ color: 'var(--text-3)', marginBottom: 4 }}>Interests:</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {profile.interests.map((t, idx) => (
+                              <span key={idx} style={{
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '12px',
+                                padding: '2px 8px',
+                                fontSize: '0.72rem',
+                              }}>
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {profile?.bio && (
+                        <div style={{ color: 'var(--text-2)', fontStyle: 'italic', fontSize: '0.78rem' }}>
+                          "{profile.bio}"
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+                        Submitted on {new Date(item.submitted_at).toLocaleString('en-IN')}
+                      </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
                       <button
                         className="btn btn-danger btn-sm"
                         style={{ flex: 1 }}
                         onClick={() => { setSelected(item); setMode('reject'); }}
+                        disabled={rejectMutation.isPending || approveMutation.isPending}
                       >
                         ✕ Reject
                       </button>
                       <button
                         className="btn btn-success btn-sm"
-                        style={{ flex: 1 }}
+                        style={{ flex: 2, fontWeight: 700 }}
                         onClick={() => { setSelected(item); setMode('approve'); }}
-                        disabled={approveMutation.isPending}
+                        disabled={approveMutation.isPending || rejectMutation.isPending}
                       >
-                        ✓ Approve
+                        ✓ Verify &amp; Activate Client
                       </button>
                     </div>
+
                   </div>
                 </div>
               );
@@ -194,127 +263,92 @@ export default function VerificationPage() {
         )}
       </div>
 
-      {/* Lightbox — click image to zoom full screen */}
+      {/* Lightbox Modal */}
       {lightbox && (
         <div
           onClick={() => setLightbox(null)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
             zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'zoom-out', padding: 24,
+            cursor: 'zoom-out', padding: 20,
           }}
         >
           <img
             src={lightbox}
-            alt="Selfie full view"
-            style={{
-              maxWidth: '100%', maxHeight: '100%',
-              borderRadius: 12, boxShadow: '0 0 60px rgba(0,0,0,0.8)',
-              objectFit: 'contain',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            alt="Enlarged verification preview"
+            style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 'var(--radius-lg)' }}
           />
-          <button
-            onClick={() => setLightbox(null)}
-            style={{
-              position: 'fixed', top: 20, right: 20,
-              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
-              width: 40, height: 40, borderRadius: '50%', fontSize: '1.2rem',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            ✕
-          </button>
         </div>
       )}
 
-      {/* Approve / Reject Confirmation Modal */}
-      {selected && mode && (
-        <div className="modal-overlay" onClick={() => { setSelected(null); setMode(null); setRejectReason(''); }}>
-          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">
-              {mode === 'approve' ? '✅ Approve Verification' : '❌ Reject Verification'}
+      {/* Approve Confirmation Modal */}
+      {mode === 'approve' && selected && (
+        <div className="modal-backdrop" onClick={() => { setMode(null); setSelected(null); }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <div className="modal-title">✓ Approve &amp; Activate Client</div>
+              <button className="modal-close" onClick={() => { setMode(null); setSelected(null); }}>✕</button>
             </div>
-            <div className="modal-sub">{selected.profiles?.display_name}</div>
-
-            {/* Show selfie thumbnail in modal too */}
-            {getSelfieUrl(selected) && (
-              <img
-                src={getSelfieUrl(selected)!}
-                alt="Selfie"
-                onClick={() => setLightbox(getSelfieUrl(selected)!)}
-                style={{
-                  width: '100%', height: 180, objectFit: 'cover',
-                  borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
-                  marginBottom: 12, cursor: 'zoom-in',
-                }}
-              />
-            )}
-
-            {mode === 'reject' && (
-              <div className="form-group">
-                <label className="form-label">Rejection Reason * (shown to customer)</label>
-                <textarea
-                  className="form-input"
-                  rows={3}
-                  style={{ resize: 'none' }}
-                  placeholder="e.g. Selfie is blurry or face is not clearly visible. Please retake in good lighting."
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                />
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 4 }}>
-                  Min 5 characters required
-                </div>
-              </div>
-            )}
-
-            {mode === 'approve' && (
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                Are you sure you want to approve <strong>{selected.profiles?.display_name}</strong> ({selected.profiles?.users?.unique_id || 'Client'})?
+              </p>
               <div style={{
-                padding: '12px', borderRadius: 'var(--radius-md)',
-                background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
-                marginBottom: 12,
+                background: 'rgba(34, 197, 94, 0.08)',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 14px',
+                fontSize: '0.82rem',
+                color: 'var(--text-2)',
+                lineHeight: 1.4,
               }}>
-                <div style={{ fontSize: '0.85rem', color: '#065F46', fontWeight: 600 }}>
-                  ✅ This will:
-                </div>
-                <ul style={{ fontSize: '0.82rem', color: '#047857', margin: '8px 0 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
-                  <li>Set profile <strong>verification_status → APPROVED</strong></li>
-                  <li>Send a push notification to the customer</li>
-                  <li>Customer becomes discoverable immediately</li>
-                </ul>
+                ✅ This will change their status to <strong>ACTIVE</strong>, mark their profile as verified, and immediately grant them access to the LittleFun portal.
               </div>
-            )}
-
-            {(approveMutation.isError || rejectMutation.isError) && (
-              <div style={{ padding: '8px 12px', background: '#FEE2E2', color: '#991B1B', borderRadius: 8, marginBottom: 12, fontSize: '0.82rem' }}>
-                ⚠️ {((approveMutation.error || rejectMutation.error) as Error)?.message ?? 'Action failed'}
-              </div>
-            )}
-
-            <div className="modal-actions">
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => { setMode(null); setSelected(null); }}>Cancel</button>
               <button
-                className="btn btn-ghost"
-                onClick={() => { setSelected(null); setMode(null); setRejectReason(''); }}
+                className="btn btn-success"
+                onClick={() => approveMutation.mutate(selected.id)}
+                disabled={approveMutation.isPending}
               >
-                Cancel
+                {approveMutation.isPending ? 'Activating…' : 'Yes, Approve & Activate'}
               </button>
-              {mode === 'approve' ? (
-                <button
-                  className="btn btn-success"
-                  onClick={() => approveMutation.mutate(selected.id)}
-                  disabled={approveMutation.isPending}
-                >
-                  {approveMutation.isPending ? 'Approving…' : '✅ Confirm Approval'}
-                </button>
-              ) : (
-                <button
-                  className="btn btn-danger"
-                  onClick={() => rejectMutation.mutate({ id: selected.id, reason: rejectReason })}
-                  disabled={rejectMutation.isPending || rejectReason.trim().length < 5}
-                >
-                  {rejectMutation.isPending ? 'Rejecting…' : '✕ Confirm Reject'}
-                </button>
-              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Reason Modal */}
+      {mode === 'reject' && selected && (
+        <div className="modal-backdrop" onClick={() => { setMode(null); setSelected(null); }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <div className="modal-title">✕ Reject Verification</div>
+              <button className="modal-close" onClick={() => { setMode(null); setSelected(null); }}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-2)' }}>
+                Please provide a reason for rejecting <strong>{selected.profiles?.display_name}</strong>'s verification:
+              </p>
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder="e.g. Blurry selfie photo, mismatch with profile details, or under-age application."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                style={{ resize: 'vertical' }}
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => { setMode(null); setSelected(null); }}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                onClick={() => rejectMutation.mutate({ id: selected.id, reason: rejectReason || 'Verification photo did not meet quality/identity guidelines.' })}
+                disabled={rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? 'Rejecting…' : 'Confirm Rejection'}
+              </button>
             </div>
           </div>
         </div>
