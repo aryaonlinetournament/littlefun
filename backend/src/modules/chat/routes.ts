@@ -55,6 +55,26 @@ chatRouter.post(
       return res.json({ success: true, conversationId: foundConvId, isNew: false });
     }
 
+    // ── Authorization: must be matched before chatting ──────────
+    // Prevents spam DMs to strangers
+    const { data: match } = await supabase
+      .from('matches')
+      .select('id')
+      .or(
+        `and(user_a_id.eq.${userId},user_b_id.eq.${otherUserId}),` +
+        `and(user_a_id.eq.${otherUserId},user_b_id.eq.${userId})`
+      )
+      .eq('status', 'ACTIVE')
+      .maybeSingle();
+
+    if (!match) {
+      res.status(403).json({
+        success: false,
+        error: { code: 'NOT_MATCHED', message: 'You must be matched to start a conversation.' },
+      });
+      return;
+    }
+
     // Create new conversation
     const { data: conv, error: convErr } = await supabase
       .from('conversations')
@@ -181,6 +201,8 @@ chatRouter.get('/:id/messages', requireAuth, async (req: Request, res: Response)
   if (!membership) throw new ForbiddenError('You are not a member of this conversation.');
 
   const { before, limit = 50 } = req.query;
+  // Clamp: max 100 messages per page request
+  const safeLimit = Math.min(Math.max(1, Number(limit)), 100);
 
   let query = supabase
     .from('messages')
@@ -192,7 +214,7 @@ chatRouter.get('/:id/messages', requireAuth, async (req: Request, res: Response)
     .eq('conversation_id', req.params.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(Number(limit));
+    .limit(safeLimit);
 
   if (before) {
     query = query.lt('created_at', before as string);

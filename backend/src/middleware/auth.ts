@@ -2,9 +2,41 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyFirebaseToken } from '../services/firebase/firebaseAdmin';
 import { getSupabaseAdmin } from '../services/supabase/supabaseClient';
 import { UserRole, ADMIN_ROLES } from '../config/constants';
-
-
 import { config } from '../config/env';
+
+// ── In-memory user cache ──────────────────────────────────────────
+interface CachedUser {
+  user: AuthenticatedUser;
+  expiresAt: number;
+}
+
+// Keyed by firebase_uid — TTL: 60 seconds
+const userCache = new Map<string, CachedUser>();
+const CACHE_TTL_MS = 60_000; // 60 seconds
+const CACHE_MAX_SIZE = 10_000; // prevent unbounded memory growth
+
+function getCachedUser(uid: string): AuthenticatedUser | null {
+  const entry = userCache.get(uid);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    userCache.delete(uid);
+    return null;
+  }
+  return entry.user;
+}
+
+function setCachedUser(uid: string, user: AuthenticatedUser): void {
+  // Evict oldest entry if cache is full
+  if (userCache.size >= CACHE_MAX_SIZE) {
+    const firstKey = userCache.keys().next().value;
+    if (firstKey) userCache.delete(firstKey);
+  }
+  userCache.set(uid, { user, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+export function invalidateUserCache(uid: string): void {
+  userCache.delete(uid);
+}
 
 export interface AuthenticatedUser {
   id: string;            // Supabase users.id (UUID)
@@ -51,6 +83,27 @@ export async function requireAuth(
 
   try {
     const decoded = await verifyFirebaseToken(token);
+
+    // ⚡ Cache hit — skip all DB queries (95% of requests)
+    const cached = getCachedUser(decoded.uid);
+    if (cached) {
+      // Block suspended/banned/deleted even on cache hit
+      if (cached.status === 'SUSPENDED') {
+        res.status(403).json({ success: false, error: { code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended.' } });
+        return;
+      }
+      if (cached.status === 'BANNED') {
+        res.status(403).json({ success: false, error: { code: 'ACCOUNT_BANNED', message: 'Your account has been banned.' } });
+        return;
+      }
+      if (cached.status === 'DELETED') {
+        res.status(401).json({ success: false, error: { code: 'ACCOUNT_DELETED', message: 'Account not found.' } });
+        return;
+      }
+      req.user = cached;
+      next();
+      return;
+    }
 
     const supabase = getSupabaseAdmin();
 
@@ -189,6 +242,9 @@ export async function requireAuth(
     }
 
     req.user = currentUser as AuthenticatedUser;
+
+    // ⚡ Cache this user for 60 seconds — eliminates DB queries for repeat requests
+    setCachedUser(decoded.uid, currentUser as AuthenticatedUser);
 
     // Update last_active_at (non-blocking)
     supabase

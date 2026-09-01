@@ -11,6 +11,22 @@ export function getSupabaseAdmin(): SupabaseClient {
         autoRefreshToken: false,
         persistSession: false,
       },
+      db: {
+        schema: 'public',
+      },
+      global: {
+        headers: {
+          'x-application-name': 'littlefun-v2-backend',
+        },
+        // Fetch with a 10 second timeout per query
+        fetch: (url, options) => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10_000);
+          return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+            clearTimeout(timer)
+          );
+        },
+      },
     });
     console.log('✅  Supabase Admin client initialized');
   }
@@ -30,4 +46,27 @@ export async function supabaseQuery<T>(
     throw new Error('No data returned from Supabase');
   }
   return data;
+}
+
+/**
+ * Retry a Supabase operation with exponential backoff.
+ * Use for non-idempotent operations where transient errors may occur.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  { maxAttempts = 3, baseDelayMs = 200 }: { maxAttempts?: number; baseDelayMs?: number } = {}
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastErr;
 }

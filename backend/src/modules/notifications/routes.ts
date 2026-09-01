@@ -8,13 +8,15 @@ export const notificationsRouter = Router();
 notificationsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
   const { before, limit = 30 } = req.query;
+  // Clamp: max 100 notifications per request
+  const safeLimit = Math.min(Math.max(1, Number(limit)), 100);
 
   let query = supabase
     .from('notifications')
     .select('*')
     .eq('user_id', req.user!.id)
     .order('created_at', { ascending: false })
-    .limit(Number(limit));
+    .limit(safeLimit);
 
   if (before) query = query.lt('created_at', before as string);
 

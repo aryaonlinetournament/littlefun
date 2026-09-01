@@ -2,18 +2,55 @@ import { auth } from './firebase';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
+// ── Token cache ──────────────────────────────────────────────────────
+// Firebase tokens are valid for 1 hour. Caching for 5 minutes avoids
+// calling getIdToken() on every single API request.
+let cachedToken: string | null = null;
+let tokenExpiresAt = 0;
+const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 async function getAuthToken(): Promise<string | null> {
   const user = auth.currentUser;
   if (!user) return null;
-  return user.getIdToken();
+
+  // Return cached token if still valid
+  if (cachedToken && Date.now() < tokenExpiresAt) {
+    return cachedToken;
+  }
+
+  // Refresh token — force=false so Firebase uses its own cache when possible
+  cachedToken = await user.getIdToken(false);
+  tokenExpiresAt = Date.now() + TOKEN_CACHE_TTL_MS;
+  return cachedToken;
 }
+
+/** Call this on signOut to clear the token cache */
+export function clearTokenCache(): void {
+  cachedToken = null;
+  tokenExpiresAt = 0;
+}
+
+// ── In-flight request deduplication ────────────────────────────────
+// Prevents the same GET request from firing twice simultaneously
+// (e.g. two components calling discoveryApi.getFeed() at the same time)
+const inflightRequests = new Map<string, Promise<unknown>>();
 
 interface ApiOptions extends RequestInit {
   requiresAuth?: boolean;
+  timeoutMs?: number;
+  deduplicate?: boolean; // only for GET requests
 }
 
 async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { requiresAuth = true, headers = {}, ...rest } = options;
+  const { requiresAuth = true, timeoutMs = 15_000, deduplicate = true, headers = {}, ...rest } = options;
+
+  // Deduplication key — only deduplicate GET requests
+  const isGet = !rest.method || rest.method === 'GET';
+  const dedupeKey = isGet && deduplicate ? `${path}` : null;
+
+  if (dedupeKey && inflightRequests.has(dedupeKey)) {
+    return inflightRequests.get(dedupeKey) as Promise<T>;
+  }
 
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -27,26 +64,47 @@ async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
     }
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
+  // Abort controller for timeout
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const fetchPromise: Promise<T> = fetch(`${BASE_URL}${path}`, {
     ...rest,
     headers: requestHeaders,
-  });
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      clearTimeout(timer);
+      const data = await response.json();
+      if (!response.ok) {
+        const error = new Error(data?.error?.message ?? 'Request failed') as Error & {
+          code: string;
+          statusCode: number;
+          fields?: Record<string, string>;
+        };
+        error.code = data?.error?.code ?? 'UNKNOWN_ERROR';
+        error.statusCode = response.status;
+        error.fields = data?.error?.fields;
+        throw error;
+      }
+      return data as T;
+    })
+    .catch((err) => {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        throw new Error(`Request timed out after ${timeoutMs / 1000}s. Please check your connection.`);
+      }
+      throw err;
+    })
+    .finally(() => {
+      if (dedupeKey) inflightRequests.delete(dedupeKey);
+    });
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    const error = new Error(data?.error?.message ?? 'Request failed') as Error & {
-      code: string;
-      statusCode: number;
-      fields?: Record<string, string>;
-    };
-    error.code = data?.error?.code ?? 'UNKNOWN_ERROR';
-    error.statusCode = response.status;
-    error.fields = data?.error?.fields;
-    throw error;
+  if (dedupeKey) {
+    inflightRequests.set(dedupeKey, fetchPromise as Promise<unknown>);
   }
 
-  return data;
+  return fetchPromise;
 }
 
 export interface ClientRegisterPayload {

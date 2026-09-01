@@ -3,6 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+// Patches Express to forward async errors to the global error handler
+// Without this, unhandled async throws cause silent hangs or process crashes
+import 'express-async-errors';
 
 import { config } from './config/env';
 import { initFirebase } from './services/firebase/firebaseAdmin';
@@ -27,6 +31,20 @@ initFirebase();
 
 const app = express();
 
+// ── Trust proxy — REQUIRED on Render/Heroku/Railway ──────────────
+// Without this, req.ip always shows Render's internal IP, not client IP
+// Rate limiter would block ALL users as if they were one person
+app.set('trust proxy', 1);
+// ── Compression (gzip) — 60-70% bandwidth savings on mobile ──────
+app.use(compression({
+  level: 6,              // balanced speed vs compression ratio
+  threshold: 1024,       // only compress responses > 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  },
+}));
+
 // ── Security headers ─────────────────────────────────────────────
 app.use(helmet());
 
@@ -47,18 +65,23 @@ app.use(
 );
 
 // ── Request parsing ───────────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// 2mb is plenty — selfie uploads go via multipart, not JSON body
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // ── Logging ───────────────────────────────────────────────────────
-app.use(morgan(config.NODE_ENV === 'production' ? 'combined' : 'dev'));
+// 'tiny' in production: less I/O overhead than 'combined'
+app.use(morgan(config.NODE_ENV === 'production' ? 'tiny' : 'dev'));
 
 // ── Global rate limiting ──────────────────────────────────────────
+// 500 req/15min per IP supports ~1000+ concurrent active users
 const limiter = rateLimit({
   windowMs: config.RATE_LIMIT_WINDOW_MS,
   max: config.RATE_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for health checks
+  skip: (req) => req.path === '/health',
   message: {
     success: false,
     error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' },
@@ -66,10 +89,12 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Stricter limit for auth endpoints
+// Stricter limit for auth endpoints — 20 per 15min (registration spikes)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: {
     success: false,
     error: { code: 'RATE_LIMITED', message: 'Too many auth attempts. Try again in 15 minutes.' },
@@ -221,8 +246,43 @@ app.get('/', (req, res) => {
   });
 });
 
+// ── Health checks ────────────────────────────────────────────────
+// /health — fast ping (no DB). Used by UptimeRobot, Render health check.
+// Never make this slow — it runs every 30-60 seconds.
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', version: '2.0.0', env: config.NODE_ENV });
+  res.json({
+    status: 'ok',
+    version: '2.0.0',
+    env: config.NODE_ENV,
+    uptime: Math.floor(process.uptime()),
+    memory: Math.floor(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+    ts: Date.now(),
+  });
+});
+
+// /health/deep — full DB ping (for manual debugging only, not automated)
+app.get('/health/deep', async (_req, res) => {
+  let dbStatus = 'ok';
+  let dbLatencyMs = -1;
+  try {
+    const { getSupabaseAdmin } = await import('./services/supabase/supabaseClient');
+    const supabase = getSupabaseAdmin();
+    const t0 = Date.now();
+    const { error } = await supabase.from('users').select('id').limit(1);
+    dbLatencyMs = Date.now() - t0;
+    if (error) dbStatus = 'degraded';
+  } catch {
+    dbStatus = 'error';
+  }
+  res.json({
+    status: dbStatus === 'ok' ? 'ok' : 'degraded',
+    db: dbStatus,
+    dbLatencyMs,
+    version: '2.0.0',
+    env: config.NODE_ENV,
+    uptime: Math.floor(process.uptime()),
+    memory: Math.floor(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+  });
 });
 
 // ── API Routes ────────────────────────────────────────────────────

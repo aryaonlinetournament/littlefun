@@ -10,6 +10,27 @@ import { COMPLETION_WEIGHTS } from '../../config/constants';
 
 export const profilesRouter = Router();
 
+// ── Magic bytes map — verify actual file content, not just MIME ──
+// MIME can be spoofed; magic bytes are the real file signature
+const IMAGE_MAGIC_BYTES: Record<string, number[][]> = {
+  'image/jpeg': [[0xFF, 0xD8, 0xFF]],
+  'image/png':  [[0x89, 0x50, 0x4E, 0x47]],
+  'image/gif':  [[0x47, 0x49, 0x46]],
+  'image/webp': [[0x52, 0x49, 0x46, 0x46]],
+  'image/heic': [[0x00, 0x00, 0x00]],  // HEIC varies, allow with MIME check
+  'image/heif': [[0x00, 0x00, 0x00]],
+};
+
+function validateImageBuffer(buffer: Buffer, mimetype: string): boolean {
+  const signatures = IMAGE_MAGIC_BYTES[mimetype];
+  if (!signatures) return false;  // Unknown MIME type = reject
+  // For HEIC/HEIF, trust MIME since magic bytes vary by encoder
+  if (mimetype === 'image/heic' || mimetype === 'image/heif') return true;
+  return signatures.some((sig) =>
+    sig.every((byte, i) => buffer[i] === byte)
+  );
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB max
@@ -40,7 +61,13 @@ profilesRouter.post(
   upload.single('photo'),
   async (req: Request, res: Response) => {
     if (!req.file) throw new BadRequestError('No image file provided');
-    const supabase = getSupabaseAdmin();
+
+  // Verify actual file contents via magic bytes (prevents MIME spoofing)
+  if (!validateImageBuffer(req.file.buffer, req.file.mimetype)) {
+    throw new BadRequestError('Invalid image file. Please upload a valid JPG, PNG, WebP, or GIF.');
+  }
+
+  const supabase = getSupabaseAdmin();
 
     // Get profile id
     const { data: profile } = await supabase
@@ -371,8 +398,10 @@ profilesRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
 profilesRouter.get('/', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
   const { page = 1, limit = 50, city, type, discovery, verification } = req.query;
-  const from = (Number(page) - 1) * Number(limit);
-  const to = from + Number(limit) - 1;
+  const safePage = Math.max(1, Number(page));
+  const safeLimit = Math.min(Math.max(1, Number(limit)), 100);
+  const from = (safePage - 1) * safeLimit;
+  const to = from + safeLimit - 1;
 
   let query = supabase
     .from('profiles')

@@ -63,13 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const syncUserData = useCallback(async () => {
     try {
-      // 1. Initial register/sync
-      const regResult = await authApi.register().catch(() => ({ isNewUser: false, uniqueId: null }));
+      // ⚡ Run /register and /me in PARALLEL (was serial — 2 roundtrips → now 1)
+      const [regResult, meData] = await Promise.all([
+        authApi.register().catch(() => ({ isNewUser: false, uniqueId: null })),
+        usersApi.me().catch(() => null) as Promise<UserMeResponse | null>,
+      ]);
+
       if (regResult?.isNewUser !== undefined) setIsNewUser(regResult.isNewUser);
       if (regResult?.uniqueId) setUniqueId(regResult.uniqueId);
 
-      // 2. Fetch full /me status
-      const meData = (await usersApi.me().catch(() => null)) as UserMeResponse | null;
       if (meData?.user) {
         setUserId(meData.user.id);
         setUserStatus(meData.user.status);

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../../middleware/auth';
 import { validateBody } from '../../middleware/validation';
 import { getSupabaseAdmin } from '../../services/supabase/supabaseClient';
-import { createFirebaseUser } from '../../services/firebase/firebaseAdmin';
+import { createFirebaseUser, getFirebaseAdmin } from '../../services/firebase/firebaseAdmin';
 import { AuditService, hashIp } from '../../services/AuditService';
 import { NotFoundError } from '../../middleware/errorHandler';
 
@@ -74,8 +74,16 @@ usersRouter.post(
 usersRouter.get('/', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
   const { page = 1, limit = 50, search, status, role } = req.query;
-  const from = (Number(page) - 1) * Number(limit);
-  const to = from + Number(limit) - 1;
+  // Clamp limit: prevent DB dump attacks (limit=99999)
+  const safePage = Math.max(1, Number(page));
+  const safeLimit = Math.min(Math.max(1, Number(limit)), 100);
+  const from = (safePage - 1) * safeLimit;
+  const to = from + safeLimit - 1;
+
+  // Sanitize search: remove SQL wildcard abuse chars
+  const safeSearch = typeof search === 'string'
+    ? search.replace(/[%_\\]/g, (c) => `\\${c}`).slice(0, 100)
+    : undefined;
 
   let query = supabase
     .from('users')
@@ -83,14 +91,14 @@ usersRouter.get('/', requireAuth, requireAdmin, async (req: Request, res: Respon
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  if (search) query = query.or(`email.ilike.%${search}%,unique_id.ilike.%${search}%`);
+  if (safeSearch) query = query.or(`email.ilike.%${safeSearch}%,unique_id.ilike.%${safeSearch}%`);
   if (status) query = query.eq('status', status);
   if (role) query = query.eq('role', role);
 
   const { data, error, count } = await query;
   if (error) throw error;
 
-  res.json({ success: true, users: data, total: count, page: Number(page), limit: Number(limit) });
+  res.json({ success: true, users: data, total: count, page: safePage, limit: safeLimit });
 });
 
 // POST /api/users/admin/create — Admin creates a customer account
@@ -144,9 +152,13 @@ usersRouter.post(
       .single();
 
     if (userError) {
-      // Rollback Firebase user
-      await createFirebaseUser({ email: `deleted_${Date.now()}@invalid`, password: 'x', displayName: 'deleted' })
-        .catch(() => {});
+      // Rollback: delete the Firebase user we just created so it doesn't become an orphan
+      try {
+        const firebaseAdmin = getFirebaseAdmin();
+        await firebaseAdmin.auth().deleteUser(firebaseUser.uid);
+      } catch (rollbackErr) {
+        console.error('[Admin] Firebase rollback failed — orphan UID:', firebaseUser.uid, rollbackErr);
+      }
       throw userError;
     }
 

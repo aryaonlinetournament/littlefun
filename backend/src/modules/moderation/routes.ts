@@ -94,7 +94,9 @@ moderationRouter.get('/blocks', requireAuth, async (req: Request, res: Response)
 moderationRouter.get('/queue', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
   const { status = 'PENDING', page = 1, limit = 50 } = req.query;
-  const from = (Number(page) - 1) * Number(limit);
+  const safePage = Math.max(1, Number(page));
+  const safeLimit = Math.min(Math.max(1, Number(limit)), 100);
+  const from = (safePage - 1) * safeLimit;
 
   const { data, error, count } = await supabase
     .from('reports')

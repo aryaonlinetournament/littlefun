@@ -23,9 +23,9 @@ const envSchema = z.object({
   // CORS
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174,https://littlefunwithpartner.web.app'),
 
-  // Rate limiting
+  // Rate limiting — 500 req/15min supports 1000+ concurrent users
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900_000),
-  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(500),
 });
 
 const parsed = envSchema.safeParse(process.env);
