@@ -63,6 +63,7 @@ export default function PaymentPage() {
     setIsSubmitted(true);
   };
 
+  const waNumber = '918796215984';
   const waText = encodeURIComponent(
     `*LittleFun VIP Registration Payment Proof*\n` +
     `--------------------------\n` +
@@ -74,7 +75,7 @@ export default function PaymentPage() {
     `*UTR / Ref No:* ${utrNumber}\n\n` +
     `Please approve my account and provide 2-3 meeting profiles.`
   );
-  const waUrl = `https://wa.me/?text=${waText}`;
+  const waUrl = `https://wa.me/${waNumber}?text=${waText}`;
 
   return (
     <div className="pay-page">

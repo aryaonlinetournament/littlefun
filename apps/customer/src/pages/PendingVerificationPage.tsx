@@ -74,17 +74,18 @@ export default function PendingVerificationPage() {
     setIsSubmitted(true);
   };
 
-  const waText = encodeURIComponent(
-    `*LittleFun VIP Registration Payment Proof*\n` +
-    `--------------------------\n` +
-    `*Client ID:* ${uniqueId || 'Pending'}\n` +
-    `*Email:* ${user?.email || 'N/A'}\n` +
-    `*Phone:* ${custPhone}\n` +
-    `*Amount:* ₹299\n` +
-    `*UTR / Ref No:* ${utrNumber}\n\n` +
-    `Please approve my account and provide 2-3 meeting profiles for my area.`
-  );
-  const waUrl = `https://wa.me/?text=${waText}`;
+    const waNumber = '918796215984';
+    const waText = encodeURIComponent(
+      `*LittleFun VIP Registration Payment Proof*\n` +
+      `--------------------------\n` +
+      `*Client ID:* ${uniqueId || 'Pending'}\n` +
+      `*Email:* ${user?.email || 'N/A'}\n` +
+      `*Phone:* ${custPhone}\n` +
+      `*Amount:* ₹299\n` +
+      `*UTR / Ref No:* ${utrNumber}\n\n` +
+      `Please approve my account and provide 2-3 meeting profiles for my area.`
+    );
+    const waUrl = `https://wa.me/${waNumber}?text=${waText}`;
 
   return (
     <div className="pending-page">
