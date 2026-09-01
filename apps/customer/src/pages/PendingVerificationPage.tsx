@@ -378,13 +378,55 @@ export default function PendingVerificationPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════ */}
-        {/* CARD 4: SEND SCREENSHOT ON WHATSAPP & INSTANT ACTIVATION   */}
+        {/* CARD 4: CELEBRATORY CLIENT ID & WHATSAPP SCREENSHOT PROOF  */}
         {/* ══════════════════════════════════════════════════════════ */}
         {currentStep === 4 && (
           <div className="flow-card animated-in">
             <div className="submitted-box">
-              <div className="submitted-icon">✓</div>
-              <h2 className="submitted-heading">Payment Details Submitted!</h2>
+              <div className="success-icon-wrap" style={{ fontSize: '2.8rem', marginBottom: '8px' }}>🎉</div>
+              <h2 className="success-title" style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff', marginBottom: '4px' }}>Application Submitted!</h2>
+              <p className="success-subtitle" style={{ fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.65)', maxWidth: '380px', margin: '0 auto 18px', lineHeight: 1.45 }}>
+                Your profile and verification details have been submitted for review.
+              </p>
+
+              {/* YOUR ASSIGNED CLIENT ID CARD */}
+              <div className="client-id-card">
+                <div className="id-label">YOUR ASSIGNED CLIENT ID</div>
+                <div className="id-value">{uniqueId || '#LF-1010'}</div>
+                <div className="id-sub">Save this ID for your reference &amp; support communications.</div>
+              </div>
+
+              {/* TIMELINE PROGRESS */}
+              <div className="status-timeline">
+                <div className="timeline-item done">
+                  <div className="t-icon">✅</div>
+                  <div className="t-content">
+                    <div className="t-title">Account Created</div>
+                    <div className="t-desc">{user?.email || 'Registered Member'}</div>
+                  </div>
+                </div>
+                <div className="timeline-item done">
+                  <div className="t-icon">✅</div>
+                  <div className="t-content">
+                    <div className="t-title">Payment &amp; UTR Submitted</div>
+                    <div className="t-desc">Phone: {custPhone} • UTR: {utrNumber}</div>
+                  </div>
+                </div>
+                <div className="timeline-item current">
+                  <div className="t-icon">⏳</div>
+                  <div className="t-content">
+                    <div className="t-title">Profile &amp; Photo Verification</div>
+                    <div className="t-desc">Usually processed within a few hours (2 mins via WhatsApp).</div>
+                  </div>
+                </div>
+                <div className="timeline-item pending">
+                  <div className="t-icon">🔒</div>
+                  <div className="t-content">
+                    <div className="t-title">VIP Portal Access</div>
+                    <div className="t-desc">Unlocked automatically once verified.</div>
+                  </div>
+                </div>
+              </div>
               
               {/* Highlighted Direct Screenshot Alert Box */}
               <div className="wa-instruction-card">
@@ -393,23 +435,8 @@ export default function PendingVerificationPage() {
                   <span>Payment Screenshot WhatsApp Par Bhejein</span>
                 </div>
                 <p className="wa-instr-desc">
-                  Jo payment aapne <strong>₹299</strong> ki hai, uska <strong>Screenshot / Payment Success Image</strong> neeche diye button par click karke direct WhatsApp par bhej dijiye taaki admin matching karke <strong>2 minute me aapka profile access unlock</strong> kare!
+                  Jo payment aapne <strong>₹299</strong> ki hai, uska <strong>Screenshot / Payment Image</strong> neeche WhatsApp par bhej dijiye taaki admin matching karke <strong>2 minute me aapka access unlock</strong> kare!
                 </p>
-              </div>
-
-              <div className="submission-summary-box">
-                <div className="sum-row">
-                  <span>Client ID:</span>
-                  <strong>{uniqueId || '#LF-PENDING'}</strong>
-                </div>
-                <div className="sum-row">
-                  <span>Phone:</span>
-                  <strong>{custPhone}</strong>
-                </div>
-                <div className="sum-row">
-                  <span>UTR No:</span>
-                  <strong style={{ fontFamily: 'monospace' }}>{utrNumber}</strong>
-                </div>
               </div>
 
               <div className="wa-action-highlight">
@@ -1096,16 +1123,75 @@ export default function PendingVerificationPage() {
           color: #ffffff;
         }
 
-        .submission-summary-box {
-          background: rgba(0, 0, 0, 0.35);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 12px;
-          padding: 10px 14px;
+        /* ── CLIENT ID CARD & TIMELINE STYLES ───────────────────── */
+        .client-id-card {
+          background: linear-gradient(135deg, rgba(255, 42, 122, 0.12) 0%, rgba(147, 51, 234, 0.18) 100%);
+          border: 1px solid rgba(255, 42, 122, 0.35);
+          border-radius: 16px;
+          padding: 16px 18px;
+          margin-bottom: 18px;
+          text-align: center;
+        }
+
+        .id-label {
+          font-size: 0.7rem;
+          letter-spacing: 0.1em;
+          color: #FF8FAB;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+
+        .id-value {
+          font-size: 1.8rem;
+          font-weight: 900;
+          color: #ffffff;
+          letter-spacing: 0.05em;
+          font-family: monospace;
+          margin-bottom: 4px;
+        }
+
+        .id-sub {
+          font-size: 0.74rem;
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        .status-timeline {
+          text-align: left;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 14px;
+          padding: 14px;
+          margin-bottom: 18px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          margin-bottom: 16px;
-          text-align: left;
+          gap: 12px;
+        }
+
+        .timeline-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .t-icon {
+          font-size: 1rem;
+          margin-top: 1px;
+        }
+
+        .t-title {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #ffffff;
+        }
+
+        .timeline-item.pending .t-title {
+          color: rgba(255, 255, 255, 0.4);
+        }
+
+        .t-desc {
+          font-size: 0.74rem;
+          color: rgba(255, 255, 255, 0.55);
+          margin-top: 1px;
         }
 
         .sum-row {

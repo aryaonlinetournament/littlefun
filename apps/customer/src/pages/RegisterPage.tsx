@@ -79,7 +79,6 @@ export default function RegisterPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Completed result state
-  const [generatedUniqueId, setGeneratedUniqueId] = useState<string>('');
 
   const toggleInterest = (tag: string) => {
     if (selectedInterests.includes(tag)) {
@@ -186,7 +185,7 @@ export default function RegisterPage() {
       await signUp(email.trim().toLowerCase(), password, name.trim());
 
       // 2. Submit client details & verification request
-      const result = await registerClient({
+      await registerClient({
         name: name.trim(),
         age: Number(age) || 25,
         gender,
@@ -198,8 +197,8 @@ export default function RegisterPage() {
         bio: bio.trim() || `Excited to connect in ${city}, ${selectedState}.`,
       });
 
-      setGeneratedUniqueId(result?.uniqueId || ('#LF-' + Math.floor(100000 + Math.random() * 900000)));
-      setStep(4); // Success screen
+      // Navigate directly to payment and pending verification flow
+      navigate('/pending-verification', { replace: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       if (msg.includes('email-already-in-use')) {
@@ -209,10 +208,7 @@ export default function RegisterPage() {
       } else if (msg.includes('network-request-failed')) {
         setError('Network error: Unable to reach authentication server. If you use Brave browser or an AdBlocker, please disable shields/adblock for localhost and retry.');
       } else {
-        // Fallback to step 4 on minor API errors so user is never stuck
-        const fallbackId = '#LF-' + Math.floor(100000 + Math.random() * 900000);
-        setGeneratedUniqueId(fallbackId);
-        setStep(4);
+        navigate('/pending-verification', { replace: true });
       }
     } finally {
       setLoading(false);
@@ -562,64 +558,6 @@ export default function RegisterPage() {
           </form>
         )}
 
-        {/* STEP 4: SUCCESS / PENDING APPROVAL */}
-        {step === 4 && (
-          <div className="success-screen">
-            <div className="success-icon-wrap">🎉</div>
-            <h2 className="success-title">Application Submitted!</h2>
-            <p className="success-subtitle">
-              Your profile and verification photo have been submitted for review.
-            </p>
-
-            <div className="client-id-card">
-              <div className="id-label">YOUR ASSIGNED CLIENT ID</div>
-              <div className="id-value">{generatedUniqueId}</div>
-              <div className="id-sub">Save this ID for your reference &amp; support communications.</div>
-            </div>
-
-            <div className="status-timeline">
-              <div className="timeline-item done">
-                <div className="t-icon">✅</div>
-                <div className="t-content">
-                  <div className="t-title">Account Created</div>
-                  <div className="t-desc">{email}</div>
-                </div>
-              </div>
-              <div className="timeline-item current">
-                <div className="t-icon">⏳</div>
-                <div className="t-content">
-                  <div className="t-title">Profile &amp; Photo Verification</div>
-                  <div className="t-desc">Usually processed within a few hours.</div>
-                </div>
-              </div>
-              <div className="timeline-item pending">
-                <div className="t-icon">🔒</div>
-                <div className="t-content">
-                  <div className="t-title">VIP Portal Access</div>
-                  <div className="t-desc">Unlocked automatically once verified.</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="success-actions">
-              <button
-                type="button"
-                className="reg-submit-btn"
-                onClick={() => navigate('/pending-verification')}
-              >
-                Check Approval Status ➔
-              </button>
-              <button
-                type="button"
-                className="reg-back-btn"
-                style={{ width: '100%', marginTop: 8 }}
-                onClick={() => navigate('/login')}
-              >
-                Back to Login
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <style>{`
