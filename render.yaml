@@ -45,5 +45,5 @@ services:
     startCommand: node -e "fetch(process.env.BACKEND_URL + '/health').then(r => r.json()).then(d => console.log('✅ Keepalive ping:', d.status)).catch(e => console.error('❌ Ping failed:', e.message))"
     envVars:
       - key: BACKEND_URL
-        value: https://littlefun-backend.onrender.com
+        value: https://littlefun.onrender.com
 
