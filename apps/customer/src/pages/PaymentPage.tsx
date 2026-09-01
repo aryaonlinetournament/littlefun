@@ -306,9 +306,17 @@ export default function PaymentPage() {
             <div className="success-box">
               <div className="success-icon-badge">✓</div>
               <h2 className="success-head">Details Submitted Successfully!</h2>
-              <p className="success-sub">
-                Aapke details note ho chuki hain. Ab WhatsApp par screenshot send karein taaki admin <strong>turant 2 minute me approval</strong> de sake:
-              </p>
+              
+              {/* Highlighted Direct Screenshot Alert Box */}
+              <div className="wa-instruction-card">
+                <div className="wa-instr-head">
+                  <span className="wa-camera-icon">📸</span>
+                  <span>Payment Screenshot WhatsApp Par Bhejein</span>
+                </div>
+                <p className="wa-instr-desc">
+                  Jo payment aapne <strong>₹299</strong> ki hai, uska <strong>Screenshot / Payment Success Image</strong> neeche diye button par click karke direct WhatsApp par bhej dijiye taaki admin matching karke <strong>2 minute me aapka profile access unlock</strong> kare!
+                </p>
+              </div>
 
               <div className="submission-summary-box">
                 <div className="sum-row">
@@ -330,7 +338,7 @@ export default function PaymentPage() {
               </div>
 
               <div className="wa-action-highlight">
-                <div className="wa-badge-top">📱 WhatsApp Support: {SUPPORT_PHONE_DISPLAY}</div>
+                <div className="wa-badge-top">📱 Official WhatsApp Support: {SUPPORT_PHONE_DISPLAY}</div>
                 <a
                   href={waUrlProof}
                   target="_blank"
@@ -340,9 +348,9 @@ export default function PaymentPage() {
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.587-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.062-2.146-.538-1.523-.628-2.5-2.164-2.576-2.264-.075-.101-.617-.821-.617-1.565 0-.743.39-1.109.529-1.26.138-.15.302-.188.403-.188.101 0 .202.001.291.006.094.004.22-.036.345.263.129.313.44 1.072.478 1.15.038.077.063.168.013.268-.05.1-.076.163-.151.251-.075.088-.158.196-.226.264-.076.075-.155.157-.067.308.088.151.391.644.838 1.042.576.513 1.062.671 1.213.746.151.076.24.063.328-.038.088-.1.378-.44.479-.59.101-.15.202-.126.34-.076.139.05.882.416 1.033.491.151.076.252.114.29.177.038.063.038.366-.106.771z"/>
                   </svg>
-                  <span>Send Screenshot on WhatsApp</span>
+                  <span>Send Payment Image on WhatsApp</span>
                 </a>
-                <p className="wa-btn-tip">Click karte hi direct WhatsApp open hoga screenshot bhejne ke liye</p>
+                <p className="wa-btn-tip">👉 Click karte hi WhatsApp open hoga — wahan payment ki photo attach karke send karein</p>
               </div>
 
               <button
@@ -717,8 +725,41 @@ export default function PaymentPage() {
           margin-bottom: 10px;
           box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
         }
-        .success-head { font-size: 1.15rem; font-weight: 800; color: #fff; margin-bottom: 6px; }
-        .success-sub { font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); margin-bottom: 16px; line-height: 1.45; }
+        .success-head { font-size: 1.15rem; font-weight: 800; color: #fff; margin-bottom: 12px; }
+
+        .wa-instruction-card {
+          background: rgba(37, 211, 102, 0.12);
+          border: 1px solid rgba(37, 211, 102, 0.4);
+          border-radius: 14px;
+          padding: 14px 12px;
+          margin-bottom: 16px;
+          text-align: left;
+        }
+
+        .wa-instr-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.92rem;
+          font-weight: 800;
+          color: #25D366;
+          margin-bottom: 6px;
+        }
+
+        .wa-camera-icon {
+          font-size: 1.1rem;
+        }
+
+        .wa-instr-desc {
+          font-size: 0.82rem;
+          color: #e2e8f0;
+          line-height: 1.45;
+          margin: 0;
+        }
+
+        .wa-instr-desc strong {
+          color: #ffffff;
+        }
 
         .submission-summary-box {
           background: rgba(0, 0, 0, 0.35);
