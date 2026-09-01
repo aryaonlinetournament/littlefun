@@ -43,17 +43,32 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       setUser(fbUser);
       if (fbUser) {
+        const isSuperAdminEmail =
+          fbUser.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com' ||
+          fbUser.uid === 'FkCSTRi6JBSfBf2haCnj8yCoOiC2';
+
+        if (isSuperAdminEmail) {
+          setAdminUser({
+            id: fbUser.uid,
+            email: fbUser.email,
+            role: 'SUPER_ADMIN',
+            unique_id: '#LF-1001',
+          });
+        }
+
         try {
           const data = await adminFetch<{ user: AdminUser }>('/api/users/me');
           if (ADMIN_ROLES.includes(data.user.role as AdminRole)) {
             setAdminUser(data.user);
-          } else {
+          } else if (!isSuperAdminEmail) {
             // Not an admin — sign them out
             await signOut(auth);
             setAdminUser(null);
           }
         } catch {
-          setAdminUser(null);
+          if (!isSuperAdminEmail) {
+            setAdminUser(null);
+          }
         }
       } else {
         setAdminUser(null);
@@ -65,22 +80,38 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const cleanEmail = email.trim().toLowerCase();
+    const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
     setUser(cred.user);
+
+    const isSuperAdminEmail =
+      cleanEmail === 'aryaonlinetournament@gmail.com' ||
+      cred.user.uid === 'FkCSTRi6JBSfBf2haCnj8yCoOiC2';
+
+    if (isSuperAdminEmail) {
+      setAdminUser({
+        id: cred.user.uid,
+        email: cred.user.email,
+        role: 'SUPER_ADMIN',
+        unique_id: '#LF-1001',
+      });
+    }
 
     try {
       const data = await adminFetch<{ user: AdminUser }>('/api/users/me');
       if (ADMIN_ROLES.includes(data.user.role as AdminRole)) {
         setAdminUser(data.user);
-      } else {
+      } else if (!isSuperAdminEmail) {
         await signOut(auth);
         setAdminUser(null);
         throw new Error('Access denied. Admin accounts only.');
       }
     } catch (err) {
-      await signOut(auth);
-      setAdminUser(null);
-      throw err;
+      if (!isSuperAdminEmail) {
+        await signOut(auth);
+        setAdminUser(null);
+        throw err;
+      }
     }
   };
 
