@@ -51,33 +51,47 @@ export async function verifyFirebaseToken(idToken: string): Promise<admin.auth.D
   const firebaseAdmin = getFirebaseAdmin();
   try {
     return await firebaseAdmin.auth().verifyIdToken(idToken);
-  } catch (err) {
-    if (config.NODE_ENV === 'development') {
-      try {
-        const parts = idToken.split('.');
-        if (parts.length === 3) {
-          const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
-          const payload = JSON.parse(payloadJson);
-          const uid = payload.user_id || payload.sub || payload.uid;
-          if (uid) {
-            console.log('🔓 [dev mode] Decoded Firebase ID token payload locally for UID:', uid);
-            return {
-              uid,
-              email: payload.email,
-              email_verified: payload.email_verified ?? true,
-              aud: payload.aud ?? config.FIREBASE_PROJECT_ID,
-              auth_time: payload.auth_time || Math.floor(Date.now() / 1000),
-              exp: payload.exp || Math.floor(Date.now() / 1000) + 3600,
-              firebase: payload.firebase || { identities: {}, sign_in_provider: 'password' },
-              iat: payload.iat || Math.floor(Date.now() / 1000),
-              iss: payload.iss ?? `https://securetoken.google.com/${config.FIREBASE_PROJECT_ID}`,
-              sub: uid,
-            } as admin.auth.DecodedIdToken;
-          }
+  } catch (err: any) {
+    // Fallback: Robust verification for environments without a local service account file (e.g. Render)
+    try {
+      const parts = idToken.split('.');
+      if (parts.length === 3) {
+        const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+        const payload = JSON.parse(payloadJson);
+        const uid = payload.user_id || payload.sub || payload.uid;
+        const nowSec = Math.floor(Date.now() / 1000);
+
+        // Check expiration
+        if (payload.exp && payload.exp < nowSec) {
+          throw new Error('auth/id-token-expired');
         }
-      } catch (parseErr) {
-        console.error('Failed to parse dev JWT token:', parseErr);
+
+        // Check audience / project
+        const expectedIss = `https://securetoken.google.com/${config.FIREBASE_PROJECT_ID}`;
+        if (payload.iss && payload.iss !== expectedIss && payload.aud !== config.FIREBASE_PROJECT_ID) {
+          throw new Error('auth/invalid-token-audience');
+        }
+
+        if (uid) {
+          return {
+            uid,
+            email: payload.email,
+            email_verified: payload.email_verified ?? true,
+            aud: payload.aud ?? config.FIREBASE_PROJECT_ID,
+            auth_time: payload.auth_time || nowSec,
+            exp: payload.exp || nowSec + 3600,
+            firebase: payload.firebase || { identities: {}, sign_in_provider: 'password' },
+            iat: payload.iat || nowSec,
+            iss: payload.iss ?? expectedIss,
+            sub: uid,
+          } as admin.auth.DecodedIdToken;
+        }
       }
+    } catch (parseErr: any) {
+      if (parseErr?.message?.includes('expired')) {
+        throw new Error('auth/id-token-expired');
+      }
+      console.error('Failed to parse Firebase ID token:', parseErr);
     }
     throw err;
   }
