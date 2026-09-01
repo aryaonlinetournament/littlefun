@@ -15,6 +15,7 @@ const ChatPage             = lazy(() => import('./pages/ChatPage'));
 const ProfilePage          = lazy(() => import('./pages/ProfilePage'));
 const RequestsPage         = lazy(() => import('./pages/RequestsPage'));
 const NotificationsPage    = lazy(() => import('./pages/NotificationsPage'));
+const PaymentPage          = lazy(() => import('./pages/PaymentPage'));
 
 // Loading fallback for lazy pages
 function PageLoader() {
@@ -86,6 +87,10 @@ export default function App() {
                   <Route
                     path="/pending-verification"
                     element={<PendingVerificationPage />}
+                  />
+                  <Route
+                    path="/pay"
+                    element={<PaymentPage />}
                   />
                   <Route
                     path="/onboarding"
