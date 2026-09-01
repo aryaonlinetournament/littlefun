@@ -10,25 +10,32 @@ import { COMPLETION_WEIGHTS } from '../../config/constants';
 
 export const profilesRouter = Router();
 
-// ── Magic bytes map — verify actual file content, not just MIME ──
-// MIME can be spoofed; magic bytes are the real file signature
-const IMAGE_MAGIC_BYTES: Record<string, number[][]> = {
-  'image/jpeg': [[0xFF, 0xD8, 0xFF]],
-  'image/png':  [[0x89, 0x50, 0x4E, 0x47]],
-  'image/gif':  [[0x47, 0x49, 0x46]],
-  'image/webp': [[0x52, 0x49, 0x46, 0x46]],
-  'image/heic': [[0x00, 0x00, 0x00]],  // HEIC varies, allow with MIME check
-  'image/heif': [[0x00, 0x00, 0x00]],
-};
+// ── Magic bytes verification — robust check for valid image formats ──
+function validateImageBuffer(buffer: Buffer, mimetype?: string): boolean {
+  if (!buffer || buffer.length < 4) return false;
 
-function validateImageBuffer(buffer: Buffer, mimetype: string): boolean {
-  const signatures = IMAGE_MAGIC_BYTES[mimetype];
-  if (!signatures) return false;  // Unknown MIME type = reject
-  // For HEIC/HEIF, trust MIME since magic bytes vary by encoder
-  if (mimetype === 'image/heic' || mimetype === 'image/heif') return true;
-  return signatures.some((sig) =>
-    sig.every((byte, i) => buffer[i] === byte)
-  );
+  // Check JPEG (FF D8 FF)
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8) return true;
+
+  // Check PNG (89 50 4E 47)
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return true;
+
+  // Check GIF (47 49 46 38)
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return true;
+
+  // Check WebP (RIFF .... WEBP)
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return true;
+
+  // Check HEIC/HEIF (ftyp)
+  if (buffer.length > 12) {
+    const brand = buffer.toString('ascii', 4, 12);
+    if (brand.includes('ftyp') || brand.includes('heic') || brand.includes('mif1')) return true;
+  }
+
+  // Fallback: If mimetype is explicitly an image and has reasonable length
+  if (mimetype && mimetype.startsWith('image/')) return true;
+
+  return false;
 }
 
 const upload = multer({

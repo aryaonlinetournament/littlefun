@@ -65,9 +65,9 @@ app.use(
 );
 
 // ── Request parsing ───────────────────────────────────────────────
-// 2mb is plenty — selfie uploads go via multipart, not JSON body
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+// 25mb supports high-res camera selfies encoded as base64 data URLs
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ── Logging ───────────────────────────────────────────────────────
 // 'tiny' in production: less I/O overhead than 'combined'
