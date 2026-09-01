@@ -25,6 +25,7 @@ interface AdminAuthContextValue {
   isLoading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   logOut: () => Promise<void>;
 }
 
@@ -84,6 +85,27 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signUp = async (email: string, password: string) => {
+    const { createUserWithEmailAndPassword } = await import('firebase/auth');
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    setUser(cred.user);
+
+    try {
+      const data = await adminFetch<{ user: AdminUser }>('/api/users/me');
+      if (ADMIN_ROLES.includes(data.user.role as AdminRole)) {
+        setAdminUser(data.user);
+      } else {
+        await signOut(auth);
+        setAdminUser(null);
+        throw new Error('Access denied. Admin accounts only.');
+      }
+    } catch (err) {
+      await signOut(auth);
+      setAdminUser(null);
+      throw err;
+    }
+  };
+
   const logOut = async () => {
     await signOut(auth);
     setAdminUser(null);
@@ -93,7 +115,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     <AdminAuthContext.Provider value={{
       user, adminUser, isLoading,
       isAdmin: adminUser !== null,
-      signIn, logOut,
+      signIn, signUp, logOut,
     }}>
       {children}
     </AdminAuthContext.Provider>
