@@ -36,7 +36,12 @@ export default function ConfigPage() {
     queryFn: () => adminApi.getConfig() as Promise<{ config: ConfigEntry[] }>,
   });
 
-  const config: ConfigEntry[] = (data as { config: ConfigEntry[] })?.config ?? [];
+  const configRaw = (data as any)?.config;
+  const config: ConfigEntry[] = Array.isArray(configRaw)
+    ? configRaw
+    : configRaw && typeof configRaw === 'object'
+    ? Object.entries(configRaw).map(([key, value]) => ({ key, value }))
+    : [];
 
   const updateMutation = useMutation({
     mutationFn: ({ key, value }: { key: string; value: unknown }) => adminApi.updateConfig(key, value),
