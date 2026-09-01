@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     try {
       const result = await signIn(email, password);
-      if (result?.isPendingApproval) {
+      if (!result?.isApproved || result?.isPendingApproval) {
         navigate('/pending-verification', { replace: true });
       } else {
         navigate('/discover', { replace: true });

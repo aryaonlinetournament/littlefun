@@ -42,11 +42,27 @@ export default function PendingVerificationPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const isSuperAdmin = user?.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
+  const isApproved = isSuperAdmin || (userStatus === 'ACTIVE' && verificationStatus === 'APPROVED');
+
   useEffect(() => {
-    if (userStatus === 'ACTIVE' || verificationStatus === 'APPROVED') {
+    if (isApproved) {
       navigate('/discover', { replace: true });
     }
-  }, [userStatus, verificationStatus, navigate]);
+  }, [isApproved, navigate]);
+
+  // Load saved payment step if user previously submitted UTR
+  useEffect(() => {
+    if (!user?.email) return;
+    const userStorageKey = `littlefun_utr_submitted_${user.email.toLowerCase()}`;
+    const savedUtr = localStorage.getItem(userStorageKey);
+    if (savedUtr) {
+      setUtrNumber(savedUtr);
+      const savedPhone = localStorage.getItem(`littlefun_phone_${user.email.toLowerCase()}`);
+      if (savedPhone) setCustPhone(savedPhone);
+      setCurrentStep(4);
+    }
+  }, [user]);
 
   const handleCheckStatus = async () => {
     setChecking(true);
@@ -97,6 +113,10 @@ export default function PendingVerificationPage() {
       date: new Date().toISOString()
     };
     try {
+      if (user?.email) {
+        localStorage.setItem(`littlefun_utr_submitted_${user.email.toLowerCase()}`, utrNumber.trim());
+        localStorage.setItem(`littlefun_phone_${user.email.toLowerCase()}`, custPhone.trim());
+      }
       const saved = JSON.parse(localStorage.getItem('littlefun_dating_payments') || '[]');
       saved.push(record);
       localStorage.setItem('littlefun_dating_payments', JSON.stringify(saved));

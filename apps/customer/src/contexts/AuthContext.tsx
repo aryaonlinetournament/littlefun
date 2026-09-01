@@ -82,19 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const isSuperAdmin = meData.user.role === 'SUPER_ADMIN' || meData.user.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
-        const isApproved = isSuperAdmin || meData.user.status === 'ACTIVE' || meData.user.profiles?.verification_status === 'APPROVED';
+        const isApproved = isSuperAdmin || (meData.user.status === 'ACTIVE' && meData.user.profiles?.verification_status === 'APPROVED');
 
         return {
           userStatus: meData.user.status,
           isApproved,
-          isPendingApproval: !isApproved && meData.user.status === 'PENDING',
+          isPendingApproval: !isApproved,
         };
       }
     } catch (err) {
       console.error('Auth status sync error:', err);
     }
-    setUserStatus((prev) => prev ?? 'ACTIVE');
-    return { userStatus: 'ACTIVE' as UserStatus, isApproved: true, isPendingApproval: false };
+    setUserStatus((prev) => prev ?? 'PENDING');
+    setVerificationStatus((prev) => prev ?? 'PENDING');
+    return { userStatus: 'PENDING' as UserStatus, isApproved: false, isPendingApproval: true };
   }, []);
 
   useEffect(() => {
@@ -174,10 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isSuperAdmin = userRole === 'SUPER_ADMIN' || user?.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
-  const isPendingApproval =
-    Boolean(user) &&
-    !isSuperAdmin &&
-    userStatus === 'PENDING';
+  const isApproved = isSuperAdmin || (userStatus === 'ACTIVE' && verificationStatus === 'APPROVED');
+  const isPendingApproval = Boolean(user) && !isApproved;
 
   return (
     <AuthContext.Provider value={{
