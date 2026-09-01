@@ -6,6 +6,9 @@ export default function PaymentPage() {
   const navigate = useNavigate();
   const { user, uniqueId } = useAuth();
 
+  // Multi-step Card State: 1 = Offer/Review, 2 = Payment Gateway, 3 = UTR & Details Upload, 4 = Send Screenshot WhatsApp
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+
   const [copied, setCopied] = useState(false);
   const [utrNumber, setUtrNumber] = useState('');
   const [custName, setCustName] = useState(user?.displayName || '');
@@ -13,8 +16,6 @@ export default function PaymentPage() {
   const [custCity, setCustCity] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<string | null>(null);
   const [screenshotName, setScreenshotName] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'whatsapp' | 'form'>('whatsapp');
   const [timeLeft, setTimeLeft] = useState(14 * 60 + 59);
 
   const SUPPORT_PHONE = '8796215984';
@@ -78,10 +79,10 @@ export default function PaymentPage() {
       localStorage.setItem('littlefun_dating_payments', JSON.stringify(saved));
     } catch {}
 
-    setIsSubmitted(true);
+    setCurrentStep(4);
   };
 
-  const waTextFormProof = encodeURIComponent(
+  const waTextProof = encodeURIComponent(
     `*LittleFun VIP Registration Payment Proof*\n` +
     `--------------------------\n` +
     `*Client ID:* ${uniqueId || 'New Registration'}\n` +
@@ -90,20 +91,9 @@ export default function PaymentPage() {
     `*City:* ${custCity || 'N/A'}\n` +
     `*Amount:* ₹299\n` +
     `*UTR / Ref No:* ${utrNumber}\n\n` +
-    `📸 I have submitted my payment proof. Please activate my account and provide meeting profiles.`
+    `📸 I have completed payment and sending screenshot here. Please activate my VIP account!`
   );
-  const waUrlFormProof = `https://wa.me/91${SUPPORT_PHONE}?text=${waTextFormProof}`;
-
-  const waDirectText = encodeURIComponent(
-    `*Hi LittleFun Admin, I want to activate my VIP account.*\n` +
-    `--------------------------\n` +
-    `*Client ID:* ${uniqueId || 'New Registration'}\n` +
-    `*Name:* ${custName || 'Customer'}\n` +
-    `*City:* ${custCity || 'N/A'}\n` +
-    `*Fee:* ₹299 (Paid via UPI)\n\n` +
-    `I am sending my payment screenshot / UTR number here. Please verify and activate my access!`
-  );
-  const waDirectUrl = `https://wa.me/91${SUPPORT_PHONE}?text=${waDirectText}`;
+  const waUrlProof = `https://wa.me/91${SUPPORT_PHONE}?text=${waTextProof}`;
 
   return (
     <div className="pay-page">
@@ -116,198 +106,261 @@ export default function PaymentPage() {
           <div className="badge-secure">🛡️ 100% SECURE CHECKOUT</div>
         </div>
 
-        {/* Urgency Pill */}
-        <div className="urgency-banner">
-          <span>🔥 Special VIP Slot Offer Ends In:</span>
-          <span className="urgency-timer">{formatTime(timeLeft)}</span>
+        {/* Step Progress Tracker */}
+        <div className="step-progress-wrapper">
+          <div className="step-tracker">
+            <div className={`step-dot ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>1</div>
+            <div className={`step-line ${currentStep >= 2 ? 'active' : ''}`}></div>
+            <div className={`step-dot ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}>2</div>
+            <div className={`step-line ${currentStep >= 3 ? 'active' : ''}`}></div>
+            <div className={`step-dot ${currentStep >= 3 ? 'active' : ''} ${currentStep > 3 ? 'completed' : ''}`}>3</div>
+            <div className={`step-line ${currentStep >= 4 ? 'active' : ''}`}></div>
+            <div className={`step-dot ${currentStep >= 4 ? 'active' : ''}`}>4</div>
+          </div>
+          <div className="step-labels">
+            <span className={currentStep === 1 ? 'active-lbl' : ''}>Overview</span>
+            <span className={currentStep === 2 ? 'active-lbl' : ''}>Pay ₹299</span>
+            <span className={currentStep === 3 ? 'active-lbl' : ''}>Upload UTR</span>
+            <span className={currentStep === 4 ? 'active-lbl' : ''}>WhatsApp Proof</span>
+          </div>
         </div>
 
-        {/* Pricing Card */}
-        <div className="pay-card">
-          <div className="badge-vip">VIP MEMBER REGISTRATION</div>
-          <h1 className="pay-main-title">LittleFun With Partner</h1>
-          <p className="pay-sub">For activating, registration charge is ₹299/-</p>
+        {/* ══════════════════════════════════════════════════════════ */}
+        {/* CARD 1: VIP ACTIVATION OVERVIEW                            */}
+        {/* ══════════════════════════════════════════════════════════ */}
+        {currentStep === 1 && (
+          <div className="pay-card animated-in">
+            <div className="badge-vip">VIP MEMBER REGISTRATION</div>
+            <h1 className="pay-main-title">LittleFun With Partner</h1>
+            <p className="pay-sub">VIP access activate karne ke liye registration fee ₹299/- complete karein</p>
 
-          <div className="price-split">
-            <div>
-              <div className="price-tag-sm">ONE-TIME FEE</div>
-              <div className="price-num">
-                <span>₹299</span> <span className="cut">₹599</span>
+            <div className="price-split">
+              <div>
+                <div className="price-tag-sm">ONE-TIME FEE</div>
+                <div className="price-num">
+                  <span>₹299</span> <span className="cut">₹599</span>
+                </div>
+              </div>
+              <div className="tag-save">50% OFF TODAY</div>
+            </div>
+
+            <div className="perks-list">
+              <div>✓ <strong>2-3 Genuine Meetings</strong> aapke area/city me arrange ki jayegi</div>
+              <div>✓ <strong>100% Verified Profiles</strong> with direct chat unlock</div>
+              <div>✓ <strong>Discreet & Confidential:</strong> 256-bit safe system</div>
+            </div>
+
+            <button
+              type="button"
+              className="btn-next-step"
+              onClick={() => setCurrentStep(2)}
+            >
+              <span>Do Payment (Pay ₹299)</span>
+              <span>→</span>
+            </button>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════ */}
+        {/* CARD 2: PAYMENT GATEWAY (UPI & QR CODE)                    */}
+        {/* ══════════════════════════════════════════════════════════ */}
+        {currentStep === 2 && (
+          <div className="pay-card animated-in">
+            <div className="card-top-nav">
+              <button type="button" className="btn-back-step" onClick={() => setCurrentStep(1)}>
+                ← Back
+              </button>
+              <span className="step-counter-pill">Step 2 of 4</span>
+            </div>
+
+            <div className="urgency-banner">
+              <span>🔥 Special 50% Off Offer Ends In:</span>
+              <span className="urgency-timer">{formatTime(timeLeft)}</span>
+            </div>
+
+            <h2 className="step-heading">Pay ₹299 via UPI</h2>
+            <p className="step-sub">Kisi bhi app se ₹299 pay karein, phir neeche Next button click karein:</p>
+
+            <a href={upiUrl} className="btn-upi-primary">
+              ⚡ Pay ₹299 Now (Open Any UPI App)
+            </a>
+
+            <div className="upi-options-grid">
+              <a href={`tez://upi/pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`} className="upi-app gpay">
+                <span className="app-dot gpay-dot"></span> Google Pay
+              </a>
+              <a href={`phonepe://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`} className="upi-app phonepe">
+                <span className="app-dot phonepe-dot"></span> PhonePe
+              </a>
+              <a href={`paytmmp://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`} className="upi-app paytm">
+                <span className="app-dot paytm-dot"></span> Paytm UPI
+              </a>
+              <a href={upiUrl} className="upi-app bhim">
+                <span className="app-dot bhim-dot"></span> BHIM / Other
+              </a>
+            </div>
+
+            {/* QR */}
+            <div className="qr-wrap">
+              <div className="qr-text">Scan QR Code to Pay ₹299</div>
+              <div className="qr-white">
+                <img src={qrCodeImgUrl} alt="QR Code" style={{ width: '160px', height: '160px', display: 'block' }} />
+              </div>
+              <div className="upi-copy-line">
+                <div className="upi-details">
+                  <span className="upi-id-lbl">UPI ID:</span>
+                  <span className="upi-id-val">{UPI_ID}</span>
+                </div>
+                <button onClick={copyUpiId} className="btn-copy-sm">
+                  {copied ? '✓ Copied' : 'Copy'}
+                </button>
               </div>
             </div>
-            <div className="tag-save">50% OFF TODAY</div>
+
+            <button
+              type="button"
+              className="btn-next-step"
+              style={{ marginTop: '16px' }}
+              onClick={() => setCurrentStep(3)}
+            >
+              <span>I Have Made Payment → Next (Upload UTR)</span>
+              <span>→</span>
+            </button>
           </div>
+        )}
 
-          <div className="perks-list">
-            <div>✓ <strong>2-3 Genuine Meetings</strong> aapke area/city me arrange ki jayegi</div>
-            <div>✓ <strong>100% Verified Profiles on App</strong></div>
-            <div>✓ <strong>100% Discreet & Safe Checkout</strong></div>
-          </div>
-
-          <a href={upiUrl} className="btn-upi-primary">
-            ⚡ Pay ₹299 Now (Open Any UPI App)
-          </a>
-
-          <div className="upi-options-grid">
-            <a href={`tez://upi/pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`} className="upi-app gpay">
-              <span className="app-dot gpay-dot"></span> Google Pay
-            </a>
-            <a href={`phonepe://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`} className="upi-app phonepe">
-              <span className="app-dot phonepe-dot"></span> PhonePe
-            </a>
-            <a href={`paytmmp://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`} className="upi-app paytm">
-              <span className="app-dot paytm-dot"></span> Paytm UPI
-            </a>
-            <a href={upiUrl} className="upi-app bhim">
-              <span className="app-dot bhim-dot"></span> BHIM / Other
-            </a>
-          </div>
-
-          {/* QR */}
-          <div className="qr-wrap">
-            <div className="qr-text">Scan QR Code to Pay ₹299</div>
-            <div className="qr-white">
-              <img src={qrCodeImgUrl} alt="QR Code" style={{ width: '170px', height: '170px', display: 'block' }} />
+        {/* ══════════════════════════════════════════════════════════ */}
+        {/* CARD 3: SUBMIT MOBILE, UTR & SCREENSHOT PHOTO              */}
+        {/* ══════════════════════════════════════════════════════════ */}
+        {currentStep === 3 && (
+          <div className="pay-card animated-in">
+            <div className="card-top-nav">
+              <button type="button" className="btn-back-step" onClick={() => setCurrentStep(2)}>
+                ← Back to Payment
+              </button>
+              <span className="step-counter-pill">Step 3 of 4</span>
             </div>
-            <div className="upi-copy-line">
-              <div className="upi-details">
-                <span className="upi-id-lbl">UPI ID:</span>
-                <span className="upi-id-val">{UPI_ID}</span>
+
+            <h2 className="step-heading">Submit UTR & Details</h2>
+            <p className="step-sub">Apna mobile number, 12-digit UTR enter karein aur screenshot select karein:</p>
+
+            <form onSubmit={handleFormSubmit} className="pay-form">
+              <div>
+                <label className="f-lbl">YOUR NAME</label>
+                <input type="text" value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Full name" className="f-in" required />
               </div>
-              <button onClick={copyUpiId} className="btn-copy-sm">
-                {copied ? '✓ Copied' : 'Copy'}
+              <div>
+                <label className="f-lbl">WHATSAPP / MOBILE NUMBER *</label>
+                <input type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} placeholder="10-digit number" className="f-in" required />
+              </div>
+              <div>
+                <label className="f-lbl">CITY / AREA</label>
+                <input type="text" value={custCity} onChange={(e) => setCustCity(e.target.value)} placeholder="e.g. Delhi NCR, Mumbai" className="f-in" />
+              </div>
+              <div>
+                <label className="f-lbl">12-DIGIT UPI REFERENCE / UTR NO. *</label>
+                <input type="text" value={utrNumber} onChange={(e) => setUtrNumber(e.target.value)} placeholder="e.g. 423589123456" className="f-in" required />
+              </div>
+
+              {/* Screenshot File Upload */}
+              <div>
+                <label className="f-lbl">ATTACH PAYMENT SCREENSHOT</label>
+                <label className="screenshot-upload-box">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="file-hidden-input"
+                  />
+                  {screenshotFile ? (
+                    <div className="file-preview-wrap">
+                      <img src={screenshotFile} alt="Screenshot preview" className="preview-thumb" />
+                      <div className="preview-info">
+                        <span className="file-name">{screenshotName}</span>
+                        <span className="file-status">✓ Image Attached</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="upload-placeholder">
+                      <span className="upload-icon">📷</span>
+                      <span className="upload-text">Click to choose Screenshot photo</span>
+                      <span className="upload-sub">PNG, JPG up to 10MB</span>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              <button type="submit" className="btn-next-step">
+                <span>Save Details & Send on WhatsApp</span>
+                <span>→</span>
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════ */}
+        {/* CARD 4: SEND SCREENSHOT ON WHATSAPP & INSTANT ACTIVATION   */}
+        {/* ══════════════════════════════════════════════════════════ */}
+        {currentStep === 4 && (
+          <div className="pay-card animated-in">
+            <div className="success-box">
+              <div className="success-icon-badge">✓</div>
+              <h2 className="success-head">Details Submitted Successfully!</h2>
+              <p className="success-sub">
+                Aapke details note ho chuki hain. Ab WhatsApp par screenshot send karein taaki admin <strong>turant 2 minute me approval</strong> de sake:
+              </p>
+
+              <div className="submission-summary-box">
+                <div className="sum-row">
+                  <span>Client ID:</span>
+                  <strong>{uniqueId || 'New VIP'}</strong>
+                </div>
+                <div className="sum-row">
+                  <span>Name:</span>
+                  <strong>{custName || 'Customer'}</strong>
+                </div>
+                <div className="sum-row">
+                  <span>Phone:</span>
+                  <strong>{custPhone}</strong>
+                </div>
+                <div className="sum-row">
+                  <span>UTR No:</span>
+                  <strong style={{ fontFamily: 'monospace' }}>{utrNumber}</strong>
+                </div>
+              </div>
+
+              <div className="wa-action-highlight">
+                <div className="wa-badge-top">📱 WhatsApp Support: {SUPPORT_PHONE_DISPLAY}</div>
+                <a
+                  href={waUrlProof}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-wa-full"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.587-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.062-2.146-.538-1.523-.628-2.5-2.164-2.576-2.264-.075-.101-.617-.821-.617-1.565 0-.743.39-1.109.529-1.26.138-.15.302-.188.403-.188.101 0 .202.001.291.006.094.004.22-.036.345.263.129.313.44 1.072.478 1.15.038.077.063.168.013.268-.05.1-.076.163-.151.251-.075.088-.158.196-.226.264-.076.075-.155.157-.067.308.088.151.391.644.838 1.042.576.513 1.062.671 1.213.746.151.076.24.063.328-.038.088-.1.378-.44.479-.59.101-.15.202-.126.34-.076.139.05.882.416 1.033.491.151.076.252.114.29.177.038.063.038.366-.106.771z"/>
+                  </svg>
+                  <span>Send Screenshot on WhatsApp</span>
+                </a>
+                <p className="wa-btn-tip">Click karte hi direct WhatsApp open hoga screenshot bhejne ke liye</p>
+              </div>
+
+              <button
+                type="button"
+                className="btn-edit-steps"
+                onClick={() => setCurrentStep(2)}
+              >
+                ← Edit Payment / Resubmit
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Verification Options Card */}
-        <div className="pay-card proof-card">
-          <h3 className="form-head">Submit Verification Proof</h3>
-          <p className="form-sub">Choose your preferred verification method below:</p>
-
-          {/* Option Selector Tabs */}
-          <div className="method-tabs">
-            <button
-              type="button"
-              className={`method-tab ${activeTab === 'whatsapp' ? 'active-tab' : ''}`}
-              onClick={() => setActiveTab('whatsapp')}
-            >
-              <span className="tab-icon">💬</span>
-              <span>WhatsApp Direct</span>
-              <span className="badge-fast">Fastest</span>
-            </button>
-            <button
-              type="button"
-              className={`method-tab ${activeTab === 'form' ? 'active-tab' : ''}`}
-              onClick={() => setActiveTab('form')}
-            >
-              <span className="tab-icon">📝</span>
-              <span>Upload UTR & Photo</span>
-            </button>
-          </div>
-
-          {/* TAB 1: WHATSAPP DIRECT */}
-          {activeTab === 'whatsapp' && (
-            <div className="tab-wa-panel">
-              <div className="wa-feature-badge">
-                <span className="wa-pulse"></span> ⚡ Instant 2-Minute Approval
-              </div>
-              <p className="wa-panel-desc">
-                Payment screenshot direct hamare official WhatsApp number <strong>{SUPPORT_PHONE_DISPLAY}</strong> par bhejein:
-              </p>
-
-              <div className="wa-number-box">
-                <span>📱 Official WhatsApp:</span>
-                <strong>{SUPPORT_PHONE_DISPLAY}</strong>
-              </div>
-
-              <a href={waDirectUrl} target="_blank" rel="noopener noreferrer" className="btn-wa-full">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.587-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.062-2.146-.538-1.523-.628-2.5-2.164-2.576-2.264-.075-.101-.617-.821-.617-1.565 0-.743.39-1.109.529-1.26.138-.15.302-.188.403-.188.101 0 .202.001.291.006.094.004.22-.036.345.263.129.313.44 1.072.478 1.15.038.077.063.168.013.268-.05.1-.076.163-.151.251-.075.088-.158.196-.226.264-.076.075-.155.157-.067.308.088.151.391.644.838 1.042.576.513 1.062.671 1.213.746.151.076.24.063.328-.038.088-.1.378-.44.479-.59.101-.15.202-.126.34-.076.139.05.882.416 1.033.491.151.076.252.114.29.177.038.063.038.366-.106.771z"/>
-                </svg>
-                <span>Send Screenshot on WhatsApp</span>
-              </a>
-
-              <div className="wa-help-note">
-                ✓ 24/7 Verified Support • Instant Verification
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: IN-APP FORM & SCREENSHOT UPLOAD */}
-          {activeTab === 'form' && (
-            <div>
-              {isSubmitted ? (
-                <div className="success-box">
-                  <div className="success-icon-badge">✓</div>
-                  <div className="success-head">Details Submitted Successfully!</div>
-                  <p className="success-sub">Admin verify karke 5-15 minute me access unlock karega.</p>
-                  <a href={waUrlFormProof} target="_blank" rel="noopener noreferrer" className="btn-wa-full">
-                    Forward Proof on WhatsApp for Fast Track
-                  </a>
-                </div>
-              ) : (
-                <form onSubmit={handleFormSubmit} className="pay-form">
-                  <div>
-                    <label className="f-lbl">YOUR NAME</label>
-                    <input type="text" value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Full name" className="f-in" required />
-                  </div>
-                  <div>
-                    <label className="f-lbl">WHATSAPP / MOBILE NUMBER</label>
-                    <input type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} placeholder="10-digit number" className="f-in" required />
-                  </div>
-                  <div>
-                    <label className="f-lbl">CITY / AREA</label>
-                    <input type="text" value={custCity} onChange={(e) => setCustCity(e.target.value)} placeholder="e.g. Delhi NCR, Mumbai" className="f-in" />
-                  </div>
-                  <div>
-                    <label className="f-lbl">12-DIGIT UPI REFERENCE / UTR NO.</label>
-                    <input type="text" value={utrNumber} onChange={(e) => setUtrNumber(e.target.value)} placeholder="e.g. 423589123456" className="f-in" required />
-                  </div>
-
-                  {/* Screenshot File Upload */}
-                  <div>
-                    <label className="f-lbl">ATTACH PAYMENT SCREENSHOT (OPTIONAL)</label>
-                    <label className="screenshot-upload-box">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="file-hidden-input"
-                      />
-                      {screenshotFile ? (
-                        <div className="file-preview-wrap">
-                          <img src={screenshotFile} alt="Screenshot preview" className="preview-thumb" />
-                          <div className="preview-info">
-                            <span className="file-name">{screenshotName}</span>
-                            <span className="file-status">✓ Image Attached</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="upload-placeholder">
-                          <span className="upload-icon">📷</span>
-                          <span className="upload-text">Tap to select payment screenshot</span>
-                          <span className="upload-sub">PNG, JPG up to 10MB</span>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-
-                  <button type="submit" className="btn-submit-green">
-                    ✓ Submit Verification Request
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       <style>{`
         .pay-page {
           min-height: 100vh;
-          background: #09070F;
+          background: #08060E;
           font-family: 'Inter', system-ui, sans-serif;
           color: #fff;
           padding: 20px 16px 60px;
@@ -320,7 +373,7 @@ export default function PaymentPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
         .btn-back {
           background: none;
@@ -338,34 +391,106 @@ export default function PaymentPage() {
           padding: 4px 10px;
           border-radius: 20px;
         }
-        .urgency-banner {
-          background: rgba(239, 68, 68, 0.15);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          border-radius: 10px;
-          padding: 8px 12px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 0.8rem;
-          color: #fca5a5;
+
+        /* ── STEP TRACKER ────────────────────────────────────────── */
+        .step-progress-wrapper {
+          background: rgba(23, 17, 34, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          padding: 14px 12px;
           margin-bottom: 16px;
         }
-        .urgency-timer {
-          background: #ef4444;
-          color: #fff;
-          font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 6px;
-          font-family: monospace;
+        .step-tracker {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          max-width: 320px;
+          margin: 0 auto;
         }
+        .step-dot {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 800;
+          transition: all 0.3s ease;
+        }
+        .step-dot.active {
+          background: linear-gradient(135deg, #FF2A7A 0%, #9333EA 100%);
+          color: #fff;
+          box-shadow: 0 0 12px rgba(255, 42, 122, 0.6);
+        }
+        .step-dot.completed {
+          background: #10B981;
+          color: #fff;
+        }
+        .step-line {
+          flex: 1;
+          height: 2px;
+          background: rgba(255, 255, 255, 0.1);
+          margin: 0 6px;
+          transition: background 0.3s ease;
+        }
+        .step-line.active { background: #FF2A7A; }
+        .step-labels {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.68rem;
+          color: rgba(255, 255, 255, 0.4);
+          font-weight: 600;
+          margin-top: 8px;
+          text-align: center;
+        }
+        .step-labels span { width: 25%; }
+        .step-labels .active-lbl { color: #FF2A7A; font-weight: 800; }
+
+        /* ── CARD STYLING ────────────────────────────────────────── */
         .pay-card {
-          background: linear-gradient(180deg, #1b1126 0%, #110c1c 100%);
+          background: linear-gradient(180deg, #1c1129 0%, #110c1c 100%);
           border: 1px solid rgba(255, 42, 122, 0.35);
           border-radius: 20px;
           padding: 22px 18px;
           margin-bottom: 16px;
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
         }
+        .animated-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card-top-nav {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+        .btn-back-step {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #e2e8f0;
+          font-size: 0.78rem;
+          font-weight: 700;
+          padding: 5px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .step-counter-pill {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #FF2A7A;
+          background: rgba(255, 42, 122, 0.12);
+          padding: 3px 10px;
+          border-radius: 20px;
+        }
+
         .badge-vip {
           display: inline-block;
           font-size: 0.72rem;
@@ -387,6 +512,19 @@ export default function PaymentPage() {
           color: rgba(255, 255, 255, 0.7);
           margin-bottom: 16px;
         }
+        .step-heading {
+          font-size: 1.25rem;
+          font-weight: 800;
+          text-align: center;
+          margin-bottom: 6px;
+        }
+        .step-sub {
+          font-size: 0.82rem;
+          color: rgba(255, 255, 255, 0.7);
+          text-align: center;
+          margin-bottom: 16px;
+        }
+
         .price-split {
           display: flex;
           justify-content: space-between;
@@ -397,29 +535,11 @@ export default function PaymentPage() {
           padding: 10px 14px;
           margin-bottom: 16px;
         }
-        .price-tag-sm {
-          font-size: 0.68rem;
-          font-weight: 700;
-          color: rgba(255, 255, 255, 0.6);
-        }
-        .price-num {
-          font-size: 1.4rem;
-          font-weight: 900;
-        }
-        .cut {
-          font-size: 0.85rem;
-          color: #64748b;
-          text-decoration: line-through;
-          margin-left: 6px;
-        }
-        .tag-save {
-          background: #10B981;
-          color: #fff;
-          font-size: 0.72rem;
-          font-weight: 800;
-          padding: 4px 10px;
-          border-radius: 10px;
-        }
+        .price-tag-sm { font-size: 0.68rem; font-weight: 700; color: rgba(255, 255, 255, 0.6); }
+        .price-num { font-size: 1.4rem; font-weight: 900; }
+        .cut { font-size: 0.85rem; color: #64748b; text-decoration: line-through; margin-left: 6px; }
+        .tag-save { background: #10B981; color: #fff; font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 10px; }
+
         .perks-list {
           display: flex;
           flex-direction: column;
@@ -428,6 +548,47 @@ export default function PaymentPage() {
           color: #e2e8f0;
           margin-bottom: 18px;
         }
+
+        .btn-next-step {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: linear-gradient(135deg, #FF2A7A 0%, #9333EA 100%);
+          border: none;
+          color: #ffffff;
+          padding: 14px;
+          border-radius: 14px;
+          font-size: 0.95rem;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 8px 25px rgba(255, 42, 122, 0.4);
+          transition: transform 0.15s;
+        }
+        .btn-next-step:active { transform: scale(0.98); }
+
+        .urgency-banner {
+          background: rgba(239, 68, 68, 0.15);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 10px;
+          padding: 8px 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.78rem;
+          color: #fca5a5;
+          margin-bottom: 16px;
+        }
+        .urgency-timer {
+          background: #ef4444;
+          color: #fff;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-family: monospace;
+        }
+
         .btn-upi-primary {
           display: flex;
           align-items: center;
@@ -462,11 +623,7 @@ export default function PaymentPage() {
           font-weight: 700;
           text-decoration: none;
         }
-        .app-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
+        .app-dot { width: 8px; height: 8px; border-radius: 50%; }
         .gpay-dot { background: #4285F4; }
         .phonepe-dot { background: #8B5CF6; }
         .paytm-dot { background: #00BAF2; }
@@ -479,11 +636,7 @@ export default function PaymentPage() {
           padding: 16px;
           text-align: center;
         }
-        .qr-text {
-          font-size: 0.8rem;
-          font-weight: 700;
-          margin-bottom: 10px;
-        }
+        .qr-text { font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; }
         .qr-white {
           background: #fff;
           padding: 10px;
@@ -499,23 +652,9 @@ export default function PaymentPage() {
           padding: 8px 12px;
           border-radius: 10px;
         }
-        .upi-details {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-        }
-        .upi-id-lbl {
-          font-size: 0.65rem;
-          color: rgba(255, 255, 255, 0.5);
-          font-weight: 700;
-        }
-        .upi-id-val {
-          font-family: monospace;
-          color: #38bdf8;
-          font-weight: 700;
-          font-size: 0.85rem;
-        }
+        .upi-details { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+        .upi-id-lbl { font-size: 0.65rem; color: rgba(255, 255, 255, 0.5); font-weight: 700; }
+        .upi-id-val { font-family: monospace; color: #38bdf8; font-weight: 700; font-size: 0.85rem; }
         .btn-copy-sm {
           background: rgba(56, 189, 248, 0.2);
           border: 1px solid rgba(56, 189, 248, 0.4);
@@ -527,130 +666,8 @@ export default function PaymentPage() {
           cursor: pointer;
         }
 
-        /* ── METHOD TABS & VERIFICATION FORM ─────────────────────── */
-        .proof-card {
-          border-color: rgba(255, 255, 255, 0.1);
-        }
-        .form-head {
-          font-size: 1.05rem;
-          font-weight: 800;
-          margin-bottom: 4px;
-        }
-        .form-sub {
-          font-size: 0.78rem;
-          color: rgba(255, 255, 255, 0.6);
-          margin-bottom: 14px;
-        }
-        .method-tabs {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          background: rgba(0, 0, 0, 0.35);
-          padding: 4px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-        }
-        .method-tab {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          background: none;
-          border: none;
-          color: rgba(255, 255, 255, 0.6);
-          padding: 10px 8px;
-          border-radius: 9px;
-          font-size: 0.78rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .method-tab.active-tab {
-          background: rgba(255, 255, 255, 0.12);
-          color: #ffffff;
-        }
-        .badge-fast {
-          background: #10B981;
-          color: #fff;
-          font-size: 0.62rem;
-          font-weight: 900;
-          padding: 2px 5px;
-          border-radius: 4px;
-        }
-        .wa-feature-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(37, 211, 102, 0.12);
-          border: 1px solid rgba(37, 211, 102, 0.3);
-          color: #25D366;
-          font-size: 0.75rem;
-          font-weight: 800;
-          padding: 4px 10px;
-          border-radius: 20px;
-          margin-bottom: 10px;
-        }
-        .wa-pulse {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #25D366;
-        }
-        .wa-panel-desc {
-          font-size: 0.82rem;
-          color: rgba(255, 255, 255, 0.75);
-          line-height: 1.45;
-          margin-bottom: 14px;
-        }
-        .wa-number-box {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px dashed rgba(255, 255, 255, 0.18);
-          border-radius: 10px;
-          padding: 10px 14px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 0.82rem;
-          color: #e2e8f0;
-          margin-bottom: 14px;
-        }
-        .wa-number-box strong {
-          color: #25D366;
-          font-size: 0.95rem;
-          font-family: monospace;
-        }
-        .btn-wa-full {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          background: #25D366;
-          color: #fff;
-          text-decoration: none;
-          padding: 14px;
-          border-radius: 14px;
-          font-size: 0.92rem;
-          font-weight: 800;
-          box-shadow: 0 8px 25px rgba(37, 211, 102, 0.35);
-          margin-bottom: 10px;
-        }
-        .wa-help-note {
-          font-size: 0.72rem;
-          color: rgba(255, 255, 255, 0.5);
-          text-align: center;
-        }
-        .pay-form {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .f-lbl {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 700;
-          color: #cbd5e1;
-          margin-bottom: 4px;
-        }
+        .pay-form { display: flex; flex-direction: column; gap: 12px; }
+        .f-lbl { display: block; font-size: 0.72rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px; }
         .f-in {
           width: 100%;
           background: rgba(255, 255, 255, 0.06);
@@ -662,9 +679,8 @@ export default function PaymentPage() {
           box-sizing: border-box;
           outline: none;
         }
-        .f-in:focus {
-          border-color: #FF2A7A;
-        }
+        .f-in:focus { border-color: #FF2A7A; }
+
         .screenshot-upload-box {
           display: block;
           background: rgba(255, 255, 255, 0.04);
@@ -674,83 +690,22 @@ export default function PaymentPage() {
           text-align: center;
           cursor: pointer;
         }
-        .file-hidden-input {
-          display: none;
-        }
-        .upload-placeholder {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-        }
-        .upload-icon {
-          font-size: 1.3rem;
-        }
-        .upload-text {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: #ffffff;
-        }
-        .upload-sub {
-          font-size: 0.68rem;
-          color: rgba(255, 255, 255, 0.4);
-        }
-        .file-preview-wrap {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .preview-thumb {
-          width: 48px;
-          height: 48px;
-          border-radius: 8px;
-          object-fit: cover;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        .preview-info {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-          overflow: hidden;
-        }
-        .file-name {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: #ffffff;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 200px;
-        }
-        .file-status {
-          font-size: 0.72rem;
-          color: #10B981;
-          font-weight: 700;
-        }
-        .btn-submit-green {
-          width: 100%;
-          background: linear-gradient(135deg, #10B981, #059669);
-          border: none;
-          color: #fff;
-          padding: 13px;
-          border-radius: 12px;
-          font-size: 0.92rem;
-          font-weight: 800;
-          cursor: pointer;
-          box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
-          margin-top: 4px;
-        }
-        .success-box {
-          text-align: center;
-          background: rgba(16, 185, 129, 0.1);
-          border: 1px solid rgba(16, 185, 129, 0.3);
-          border-radius: 14px;
-          padding: 20px 14px;
-        }
+        .file-hidden-input { display: none; }
+        .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .upload-icon { font-size: 1.3rem; }
+        .upload-text { font-size: 0.82rem; font-weight: 700; color: #ffffff; }
+        .upload-sub { font-size: 0.68rem; color: rgba(255, 255, 255, 0.4); }
+
+        .file-preview-wrap { display: flex; align-items: center; gap: 12px; }
+        .preview-thumb { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255, 255, 255, 0.2); }
+        .preview-info { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; overflow: hidden; }
+        .file-name { font-size: 0.82rem; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .file-status { font-size: 0.72rem; color: #10B981; font-weight: 700; }
+
+        .success-box { text-align: center; padding: 6px 0; }
         .success-icon-badge {
-          width: 36px;
-          height: 36px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           background: #10B981;
           color: #fff;
@@ -758,20 +713,59 @@ export default function PaymentPage() {
           align-items: center;
           justify-content: center;
           font-weight: 900;
-          font-size: 1.1rem;
-          margin-bottom: 8px;
+          font-size: 1.3rem;
+          margin-bottom: 10px;
+          box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
         }
-        .success-head {
+        .success-head { font-size: 1.15rem; font-weight: 800; color: #fff; margin-bottom: 6px; }
+        .success-sub { font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); margin-bottom: 16px; line-height: 1.45; }
+
+        .submission-summary-box {
+          background: rgba(0, 0, 0, 0.35);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px;
+          padding: 10px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 16px;
+          text-align: left;
+        }
+        .sum-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); }
+        .sum-row strong { color: #fff; }
+
+        .wa-action-highlight {
+          background: rgba(37, 211, 102, 0.1);
+          border: 1px solid rgba(37, 211, 102, 0.35);
+          border-radius: 16px;
+          padding: 16px 14px;
+          margin-bottom: 16px;
+        }
+        .wa-badge-top { font-size: 0.76rem; font-weight: 800; color: #25D366; margin-bottom: 10px; }
+        .btn-wa-full {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: #25D366;
+          color: #fff;
+          text-decoration: none;
+          padding: 14px;
+          border-radius: 14px;
           font-size: 0.95rem;
           font-weight: 800;
-          color: #fff;
-          margin-bottom: 6px;
+          box-shadow: 0 8px 25px rgba(37, 211, 102, 0.4);
         }
-        .success-sub {
-          font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.7);
-          margin-bottom: 14px;
-          line-height: 1.4;
+        .wa-btn-tip { font-size: 0.72rem; color: rgba(255, 255, 255, 0.6); margin-top: 8px; }
+
+        .btn-edit-steps {
+          background: none;
+          border: none;
+          color: #94a3b8;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 6px;
         }
       `}</style>
     </div>
