@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireAdmin } from '../../middleware/auth';
+import { requireAuth, requireAdmin, invalidateUserCache } from '../../middleware/auth';
 import { validateBody } from '../../middleware/validation';
 import { getSupabaseAdmin } from '../../services/supabase/supabaseClient';
-import { createFirebaseUser, getFirebaseAdmin } from '../../services/firebase/firebaseAdmin';
+import { createFirebaseUser, updateFirebaseUserPassword, getFirebaseAdmin } from '../../services/firebase/firebaseAdmin';
 import { AuditService, hashIp } from '../../services/AuditService';
 import { NotFoundError } from '../../middleware/errorHandler';
 
@@ -24,7 +24,10 @@ usersRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
 
   if (error || !user) throw new NotFoundError('User');
 
-  res.json({ success: true, user });
+  const rawProfiles = (user as Record<string, unknown>).profiles;
+  const profileObj = Array.isArray(rawProfiles) ? rawProfiles[0] : rawProfiles;
+
+  res.json({ success: true, user: { ...user, profiles: profileObj || null } });
 });
 
 // ── PATCH /api/users/me ──────────────────────────────────────────
@@ -87,18 +90,24 @@ usersRouter.get('/', requireAuth, requireAdmin, async (req: Request, res: Respon
 
   let query = supabase
     .from('users')
-    .select('id, unique_id, email, phone, role, status, created_at, last_active_at, plans(name)', { count: 'exact' })
+    .select('id, unique_id, email, phone, role, status, created_at, last_active_at, plans(name), profiles(display_name)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  if (safeSearch) query = query.or(`email.ilike.%${safeSearch}%,unique_id.ilike.%${safeSearch}%`);
+  if (safeSearch) query = query.or(`email.ilike.%${safeSearch}%,unique_id.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`);
   if (status) query = query.eq('status', status);
   if (role) query = query.eq('role', role);
 
   const { data, error, count } = await query;
   if (error) throw error;
 
-  res.json({ success: true, users: data, total: count, page: safePage, limit: safeLimit });
+  const formattedUsers = (data || []).map((u: any) => ({
+    ...u,
+    plan_name: u.plans?.name || 'FREE',
+    name: Array.isArray(u.profiles) ? u.profiles[0]?.display_name : u.profiles?.display_name,
+  }));
+
+  res.json({ success: true, users: formattedUsers, total: count, page: safePage, limit: safeLimit });
 });
 
 // POST /api/users/admin/create — Admin creates a customer account
@@ -250,6 +259,10 @@ usersRouter.patch(
       ipHash: hashIp(req.ip),
     });
 
+    if (data?.firebase_uid) {
+      invalidateUserCache(data.firebase_uid);
+    }
+
     res.json({ success: true, user: data });
   }
 );
@@ -279,3 +292,101 @@ usersRouter.patch(
     res.json({ success: true, message: `Plan updated to ${req.body.planName}` });
   }
 );
+
+// POST /api/users/admin/reset-password — Admin reset user password
+usersRouter.post(
+  '/admin/reset-password',
+  requireAuth,
+  requireAdmin,
+  validateBody(z.object({ userId: z.string().uuid(), newPassword: z.string().min(6).optional() })),
+  async (req: Request, res: Response) => {
+    const supabase = getSupabaseAdmin();
+    const { userId, newPassword } = req.body;
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, unique_id, firebase_uid')
+      .eq('id', userId)
+      .single();
+
+    if (error || !user) throw new NotFoundError('User');
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const finalPassword =
+      newPassword ||
+      'LF@' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+    // Update in Firebase Auth
+    if (user.firebase_uid) {
+      try {
+        await updateFirebaseUserPassword(user.firebase_uid, finalPassword);
+      } catch (fbErr) {
+        console.warn('[Admin] Password update via Firebase SDK error, proceeding:', fbErr);
+      }
+    }
+
+    await AuditService.adminAction({
+      actor: req.user!,
+      action: 'ADMIN_RESET_USER_PASSWORD',
+      entityType: 'user',
+      entityId: user.id,
+      newValue: { email: user.email },
+      ipHash: hashIp(req.ip),
+    });
+
+    res.json({
+      success: true,
+      credentials: {
+        uniqueId: user.unique_id,
+        email: user.email,
+        password: finalPassword,
+      },
+    });
+  }
+);
+
+// PATCH /api/users/admin/:id/details — Admin update user details
+usersRouter.patch(
+  '/admin/:id/details',
+  requireAuth,
+  requireAdmin,
+  validateBody(
+    z.object({
+      name: z.string().optional(),
+      phone: z.string().optional(),
+      email: z.string().email().optional(),
+      planName: z.enum(['FREE', 'BASIC', 'PRO', 'PREMIUM']).optional(),
+    })
+  ),
+  async (req: Request, res: Response) => {
+    const supabase = getSupabaseAdmin();
+    const { name, phone, email, planName } = req.body;
+    const userId = req.params.id;
+
+    const userUpdates: Record<string, any> = {};
+    if (phone !== undefined) userUpdates.phone = phone;
+    if (email !== undefined) userUpdates.email = email;
+
+    if (planName) {
+      const { data: plan } = await supabase.from('plans').select('id').eq('name', planName).single();
+      if (plan) userUpdates.plan_id = plan.id;
+    }
+
+    if (Object.keys(userUpdates).length > 0) {
+      await supabase.from('users').update(userUpdates).eq('id', userId);
+    }
+
+    if (name) {
+      await supabase.from('profiles').update({ display_name: name }).eq('user_id', userId);
+    }
+
+    const { data: updated } = await supabase
+      .from('users')
+      .select('id, unique_id, email, phone, role, status, plan_id, plans(name), profiles(display_name)')
+      .eq('id', userId)
+      .single();
+
+    res.json({ success: true, user: updated });
+  }
+);
+

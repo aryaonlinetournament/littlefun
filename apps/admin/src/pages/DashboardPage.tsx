@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { adminApi } from '../lib/api';
 
 type DashData = {
@@ -72,27 +73,27 @@ export default function DashboardPage() {
               <div className="admin-table-wrap" style={{ padding: '20px 24px' }}>
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 12 }}>Quick Actions</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <a href="/admin/requests" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
+                  <Link to="/requests" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
                     📋 Review Pending Requests ({d?.requests.pending ?? 0})
-                  </a>
-                  <a href="/admin/verification" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
+                  </Link>
+                  <Link to="/verification" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
                     ✅ Verification Queue
-                  </a>
-                  <a href="/admin/moderation" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
+                  </Link>
+                  <Link to="/moderation" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
                     🛡️ Moderation Queue ({d?.moderation.pendingReports ?? 0})
-                  </a>
-                  <a href="/admin/analytics" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
+                  </Link>
+                  <Link to="/analytics" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
                     📈 View Analytics
-                  </a>
-                  <a href="/admin/broadcast" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
+                  </Link>
+                  <Link to="/broadcast" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
                     📣 Send Broadcast Notification
-                  </a>
-                  <a href="/admin/banners" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
+                  </Link>
+                  <Link to="/banners" className="btn btn-ghost" style={{ justifyContent: 'flex-start' }}>
                     🎨 Manage App Banners
-                  </a>
-                  <a href="/admin/users" className="btn btn-primary" style={{ justifyContent: 'flex-start' }}>
+                  </Link>
+                  <Link to="/users" className="btn btn-primary" style={{ justifyContent: 'flex-start' }}>
                     ➕ Create New Customer
-                  </a>
+                  </Link>
                 </div>
               </div>
 

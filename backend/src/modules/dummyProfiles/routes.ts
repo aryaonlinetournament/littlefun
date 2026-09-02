@@ -107,35 +107,43 @@ let memoryDummyProfiles: DummyProfileItem[] = [
 ];
 
 // ── GET /api/dummy-profiles (Public Customer Endpoint) ────────────
-dummyProfilesRouter.get('/', async (req: Request, res: Response): Promise<void> => {
-  const { state } = req.query;
-
+dummyProfilesRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseAdmin();
-    let query = supabase.from('dummy_profiles').select('*').eq('is_active', true);
-    if (state && state !== 'ALL') {
-      query = query.ilike('state', `%${state}%`);
-    }
-    const { data: dbData, error } = await query;
+    const { data: dbData, error } = await supabase
+      .from('dummy_companion_profiles')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
     if (!error && dbData && dbData.length > 0) {
-      res.json({ success: true, profiles: dbData });
+      const mapped = dbData.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        age: d.age || 24,
+        gender: d.gender || 'FEMALE',
+        avatar: d.avatar || DEFAULT_DUMMY_AVATAR,
+        state: 'Dynamic',
+        city: d.city || 'Nearby',
+        area: d.area || 'Nearby (~25km)',
+        distanceKm: d.distance_km || 25,
+        hourlyRate: d.hourly_rate || 2500,
+        bio: d.bio || '',
+        occupation: d.occupation || '',
+        likes: d.interests || ['Coffee Date'],
+        meetingType: `${d.interests?.[0] || 'Companion'} Meetup ☕`,
+        isActive: d.is_active ?? true,
+        visibleInAreas: d.visible_in_areas || ['*'],
+        created_at: d.created_at,
+      }));
+      res.json({ success: true, profiles: mapped });
       return;
     }
   } catch (e) {
-    console.warn('dummy_profiles DB query fallback to memory:', e);
+    console.warn('dummy_companion_profiles DB query fallback to memory:', e);
   }
 
-  let filtered = memoryDummyProfiles.filter((p) => p.isActive);
-  if (state && state !== 'ALL') {
-    const searchState = String(state).toLowerCase();
-    filtered = filtered.filter(
-      (p) =>
-        p.state.toLowerCase().includes(searchState) ||
-        p.city.toLowerCase().includes(searchState) ||
-        p.area.toLowerCase().includes(searchState)
-    );
-  }
-
+  const filtered = memoryDummyProfiles.filter((p) => p.isActive);
   res.json({ success: true, profiles: filtered });
 });
 
@@ -147,13 +155,36 @@ adminDummyProfilesRouter.use(requireAuth, requireAdmin);
 adminDummyProfilesRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseAdmin();
-    const { data: dbData, error } = await supabase.from('dummy_profiles').select('*').order('created_at', { ascending: false });
+    const { data: dbData, error } = await supabase
+      .from('dummy_companion_profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (!error && dbData && dbData.length > 0) {
-      res.json({ success: true, profiles: dbData });
+      const mapped = dbData.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        age: d.age || 24,
+        gender: d.gender || 'FEMALE',
+        avatar: d.avatar || DEFAULT_DUMMY_AVATAR,
+        state: 'Dynamic',
+        city: d.city || 'Nearby',
+        area: d.area || 'Nearby (~25km)',
+        distanceKm: d.distance_km || 25,
+        hourlyRate: d.hourly_rate || 2500,
+        bio: d.bio || '',
+        occupation: d.occupation || '',
+        likes: d.interests || ['Coffee Date'],
+        meetingType: `${d.interests?.[0] || 'Companion'} Meetup ☕`,
+        isActive: d.is_active ?? true,
+        visibleInAreas: d.visible_in_areas || ['*'],
+        created_at: d.created_at,
+      }));
+      res.json({ success: true, profiles: mapped });
       return;
     }
   } catch (e) {
-    console.warn('Admin dummy_profiles fetch fallback:', e);
+    console.warn('Admin dummy_companion_profiles fetch fallback:', e);
   }
 
   res.json({ success: true, profiles: memoryDummyProfiles });
@@ -162,45 +193,86 @@ adminDummyProfilesRouter.get('/', async (_req: Request, res: Response): Promise<
 // POST /api/admin/dummy-profiles (Create)
 adminDummyProfilesRouter.post('/', async (req: Request, res: Response): Promise<void> => {
   const body = req.body;
-  if (!body.name || !body.city || !body.hourlyRate) {
-    res.status(400).json({ success: false, error: { message: 'Name, city, and hourly rate are required' } });
+  if (!body.name || !body.hourlyRate) {
+    res.status(400).json({ success: false, error: { message: 'Name and hourly rate are required' } });
     return;
   }
 
-  const newProfile: DummyProfileItem = {
-    id: `dp-${Date.now()}`,
+  const row = {
     name: body.name,
     age: Number(body.age) || 24,
     gender: body.gender || 'FEMALE',
-    avatar: body.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&q=80&auto=format&fit=crop',
-    state: body.state || 'Delhi NCR',
-    city: body.city || 'Delhi',
-    area: body.area || 'Connaught Place',
-    distanceKm: Number(body.distanceKm) || 25,
-    hourlyRate: Number(body.hourlyRate) || 2500,
-    bio: body.bio || '',
-    occupation: body.occupation || 'Software Engineer',
-    likes: Array.isArray(body.likes) ? body.likes : ['Coffee Date'],
-    meetingType: body.meetingType || `${body.area || body.city} Meetup ☕`,
-    isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
-    visibleInAreas: [body.area || body.city],
+    avatar: body.avatar || null,
+    city: 'Nearby',
+    area: 'Nearby (~25km)',
+    distance_km: 25,
+    hourly_rate: Number(body.hourlyRate) || 2500,
+    bio: body.bio || 'Available for friendly companion meetups & coffee.',
+    occupation: '',
+    interests: Array.isArray(body.likes) ? body.likes : ['Coffee Date'],
+    is_active: body.isActive !== undefined ? Boolean(body.isActive) : true,
+    show_in_discovery: true,
+    visible_in_areas: ['*'],
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   try {
     const supabase = getSupabaseAdmin();
-    const { data: inserted, error } = await supabase.from('dummy_profiles').insert(newProfile).select().maybeSingle();
+    const { data: inserted, error } = await supabase
+      .from('dummy_companion_profiles')
+      .insert(row)
+      .select()
+      .maybeSingle();
+
     if (!error && inserted) {
-      memoryDummyProfiles.unshift(inserted as DummyProfileItem);
-      res.json({ success: true, profile: inserted });
+      const mapped = {
+        id: inserted.id,
+        name: inserted.name,
+        age: inserted.age,
+        gender: inserted.gender,
+        avatar: inserted.avatar || DEFAULT_DUMMY_AVATAR,
+        state: 'Dynamic',
+        city: inserted.city,
+        area: inserted.area,
+        distanceKm: inserted.distance_km,
+        hourlyRate: inserted.hourly_rate,
+        bio: inserted.bio,
+        occupation: '',
+        likes: inserted.interests,
+        meetingType: 'Companion Meetup ☕',
+        isActive: inserted.is_active,
+        visibleInAreas: ['*'],
+        created_at: inserted.created_at,
+      };
+      res.json({ success: true, profile: mapped });
       return;
     }
   } catch (e) {
     console.warn('DB insert fallback:', e);
   }
 
-  memoryDummyProfiles.unshift(newProfile);
-  res.json({ success: true, profile: newProfile });
+  const fallbackProfile: DummyProfileItem = {
+    id: `dp-${Date.now()}`,
+    name: body.name,
+    age: Number(body.age) || 24,
+    gender: body.gender || 'FEMALE',
+    avatar: body.avatar || DEFAULT_DUMMY_AVATAR,
+    state: 'Dynamic',
+    city: 'Customer Location',
+    area: 'Near Customer (~25km)',
+    distanceKm: 25,
+    hourlyRate: Number(body.hourlyRate) || 2500,
+    bio: body.bio || 'Available for friendly companion meetups & coffee.',
+    occupation: '',
+    likes: Array.isArray(body.likes) ? body.likes : ['Coffee Date'],
+    meetingType: 'Companion Meetup ☕',
+    isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+    visibleInAreas: ['*'],
+    created_at: new Date().toISOString(),
+  };
+  memoryDummyProfiles.unshift(fallbackProfile);
+  res.json({ success: true, profile: fallbackProfile });
 });
 
 // PUT /api/admin/dummy-profiles/:id (Update)
@@ -208,36 +280,39 @@ adminDummyProfilesRouter.put('/:id', async (req: Request, res: Response): Promis
   const { id } = req.params;
   const updates = req.body;
 
-  let updated: DummyProfileItem | null = null;
-  memoryDummyProfiles = memoryDummyProfiles.map((p) => {
-    if (p.id === id) {
-      updated = { ...p, ...updates };
-      return updated!;
-    }
-    return p;
-  });
-
   try {
     const supabase = getSupabaseAdmin();
-    await supabase.from('dummy_profiles').update(updates).eq('id', id);
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.age !== undefined) dbUpdates.age = Number(updates.age);
+    if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
+    if (updates.hourlyRate !== undefined) dbUpdates.hourly_rate = Number(updates.hourlyRate);
+    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+    if (updates.isActive !== undefined) dbUpdates.is_active = Boolean(updates.isActive);
+    if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
+
+    const { error } = await supabase.from('dummy_companion_profiles').update(dbUpdates).eq('id', id);
+    if (!error) {
+      res.json({ success: true, message: 'Profile updated' });
+      return;
+    }
   } catch (e) {
     console.warn('DB update fallback:', e);
   }
 
-  res.json({ success: true, profile: updated });
+  res.json({ success: true, message: 'Updated locally' });
 });
 
 // DELETE /api/admin/dummy-profiles/:id (Delete)
 adminDummyProfilesRouter.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  memoryDummyProfiles = memoryDummyProfiles.filter((p) => p.id !== id);
 
   try {
     const supabase = getSupabaseAdmin();
-    await supabase.from('dummy_profiles').delete().eq('id', id);
+    await supabase.from('dummy_companion_profiles').delete().eq('id', id);
   } catch (e) {
     console.warn('DB delete fallback:', e);
   }
 
-  res.json({ success: true, message: 'Dummy profile deleted' });
+  res.json({ success: true, message: 'Dummy profile deleted successfully' });
 });

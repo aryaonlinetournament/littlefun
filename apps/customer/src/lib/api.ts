@@ -1,33 +1,53 @@
 import { auth } from './firebase';
+import { supabase } from './supabase';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // ── Token cache ──────────────────────────────────────────────────────
-// Firebase tokens are valid for 1 hour. Caching for 5 minutes avoids
-// calling getIdToken() on every single API request.
+// Keyed by Firebase user UID so switching accounts never bleeds tokens
+let cachedUid: string | null = null;
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function getAuthToken(): Promise<string | null> {
   const user = auth.currentUser;
-  if (!user) return null;
+  if (!user) {
+    cachedUid = null;
+    cachedToken = null;
+    tokenExpiresAt = 0;
+    return null;
+  }
 
-  // Return cached token if still valid
+  // If user changed, force clear cache immediately
+  if (cachedUid !== user.uid) {
+    cachedUid = user.uid;
+    cachedToken = null;
+    tokenExpiresAt = 0;
+  }
+
+  // Return cached token if still valid for current user
   if (cachedToken && Date.now() < tokenExpiresAt) {
     return cachedToken;
   }
 
-  // Refresh token — force=false so Firebase uses its own cache when possible
-  cachedToken = await user.getIdToken(false);
-  tokenExpiresAt = Date.now() + TOKEN_CACHE_TTL_MS;
-  return cachedToken;
+  // Refresh token — force=false so Firebase uses its internal cache when possible
+  try {
+    cachedToken = await user.getIdToken(false);
+    tokenExpiresAt = Date.now() + TOKEN_CACHE_TTL_MS;
+    return cachedToken;
+  } catch (err) {
+    console.error('Failed to retrieve Firebase ID token:', err);
+    return null;
+  }
 }
 
-/** Call this on signOut to clear the token cache */
+/** Call this on signOut or auth state change to clear the token and request cache */
 export function clearTokenCache(): void {
+  cachedUid = null;
   cachedToken = null;
   tokenExpiresAt = 0;
+  inflightRequests.clear();
 }
 
 // ── In-flight request deduplication ────────────────────────────────
@@ -132,16 +152,157 @@ export const authApi = {
 
 // ── Users ─────────────────────────────────────────────────────────
 export const usersApi = {
-  me: () => apiFetch('/api/users/me'),
+  me: async () => {
+    try {
+      return await apiFetch('/api/users/me', { timeoutMs: 25000 });
+    } catch (apiErr) {
+      console.warn('Backend /api/users/me fallback to Supabase:', apiErr);
+      const user = auth.currentUser;
+      if (user) {
+        let { data: dbUser } = await supabase
+          .from('users')
+          .select(`
+            id, firebase_uid, email, phone, role, status, unique_id, plan_id, created_at, last_active_at,
+            profiles(id, display_name, verification_status, discovery_status, profile_completion, age, gender, interests, bio)
+          `)
+          .eq('firebase_uid', user.uid)
+          .maybeSingle();
+
+        // Resilient fallback by email if firebase_uid is not yet bound
+        if (!dbUser && user.email) {
+          const { data: dbUserByEmail } = await supabase
+            .from('users')
+            .select(`
+              id, firebase_uid, email, phone, role, status, unique_id, plan_id, created_at, last_active_at,
+              profiles(id, display_name, verification_status, discovery_status, profile_completion, age, gender, interests, bio)
+            `)
+            .ilike('email', user.email.trim())
+            .maybeSingle();
+
+          if (dbUserByEmail) {
+            dbUser = dbUserByEmail;
+            supabase.from('users').update({ firebase_uid: user.uid }).eq('id', dbUserByEmail.id).then();
+          }
+        }
+
+        if (dbUser) {
+          const rawProfiles = (dbUser as Record<string, unknown>).profiles;
+          const profileObj = Array.isArray(rawProfiles) ? rawProfiles[0] : rawProfiles;
+          return {
+            success: true,
+            user: {
+              ...dbUser,
+              profiles: profileObj || null,
+            },
+          };
+        }
+      }
+      throw apiErr;
+    }
+  },
   registerDeviceToken: (token: string, platform: string) =>
     apiFetch('/api/users/device-token', { method: 'POST', body: JSON.stringify({ token, platform }) }),
 };
 
 // ── Profiles ──────────────────────────────────────────────────────
 export const profilesApi = {
-  me: () => apiFetch('/api/profiles/me'),
-  update: (data: Record<string, unknown>) =>
-    apiFetch('/api/profiles/me', { method: 'PUT', body: JSON.stringify(data) }),
+  me: async () => {
+    try {
+      return await apiFetch('/api/profiles/me', { timeoutMs: 25000 });
+    } catch (apiErr) {
+      console.warn('Backend /api/profiles/me fallback to Supabase:', apiErr);
+      const user = auth.currentUser;
+      if (user) {
+        let { data: dbUser } = await supabase
+          .from('users')
+          .select('id, email, phone, unique_id, status, role')
+          .eq('firebase_uid', user.uid)
+          .maybeSingle();
+
+        if (!dbUser && user.email) {
+          const { data: dbUserByEmail } = await supabase
+            .from('users')
+            .select('id, email, phone, unique_id, status, role')
+            .ilike('email', user.email.trim())
+            .maybeSingle();
+          if (dbUserByEmail) {
+            dbUser = dbUserByEmail;
+          }
+        }
+
+        if (dbUser) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select(`
+              *,
+              users(email, phone),
+              profile_photos(id, url, is_primary, sort_order),
+              cities(id, name, state),
+              areas(id, name)
+            `)
+            .eq('user_id', dbUser.id)
+            .maybeSingle();
+
+          if (profile) {
+            const userRec = (profile as Record<string, unknown>).users as { email?: string; phone?: string } | null;
+            const userEmail = profile.email || userRec?.email || dbUser.email || user.email || '';
+            const userPhone = profile.phone_number || userRec?.phone || dbUser.phone || user.phoneNumber || '';
+            const displayName = profile.display_name || user.displayName || (userEmail ? userEmail.split('@')[0] : 'Member');
+
+            return {
+              success: true,
+              profile: {
+                ...profile,
+                display_name: displayName,
+                email: userEmail,
+                phone_number: userPhone,
+                unique_id: dbUser.unique_id,
+              },
+            };
+          }
+        }
+      }
+      throw apiErr;
+    }
+  },
+  update: async (data: Record<string, unknown>) => {
+    try {
+      return await apiFetch('/api/profiles/me', { method: 'PUT', body: JSON.stringify(data) });
+    } catch (apiErr) {
+      const user = auth.currentUser;
+      if (user) {
+        let { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('firebase_uid', user.uid)
+          .maybeSingle();
+
+        if (!dbUser && user.email) {
+          const { data: dbUserByEmail } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('email', user.email.trim())
+            .maybeSingle();
+          if (dbUserByEmail) {
+            dbUser = dbUserByEmail;
+          }
+        }
+
+        if (dbUser) {
+          const { email, phone_number, ...profilePayload } = data;
+          if (email || phone_number) {
+            await supabase.from('users').update({
+              ...(email ? { email } : {}),
+              ...(phone_number ? { phone: phone_number } : {}),
+            }).eq('id', dbUser.id);
+          }
+          await supabase.from('profiles').update(profilePayload).eq('user_id', dbUser.id);
+          return { success: true };
+        }
+      }
+      throw apiErr;
+    }
+  },
   getById: (id: string) => apiFetch(`/api/profiles/${id}`),
   uploadPhoto: async (file: File): Promise<{ photo: { id: string; url: string; is_primary: boolean }; completion: number }> => {
     const token = await auth.currentUser?.getIdToken();
@@ -179,9 +340,30 @@ export const profilesApi = {
   },
 };
 
-// ── Top Achievers ──────────────────────────────────────────────────
+// ── Top Achievers (Hall of Fame) ──────────────────────────────────
 export const achieversApi = {
   getTop: async () => {
+    try {
+      const { data } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'top_achievers')
+        .maybeSingle();
+      if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
+        return (data.value as any[]).filter((a: any) => a.is_active !== false);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch achievers from app_config:', err);
+    }
+    try {
+      const { data } = await supabase
+        .from('top_achievers')
+        .select('*')
+        .eq('is_active', true)
+        .order('rank_num', { ascending: true })
+        .limit(5);
+      if (data && data.length > 0) return data;
+    } catch {}
     try {
       const res = await fetch(`${BASE_URL}/api/achievers`);
       const data = await res.json();
@@ -199,7 +381,13 @@ export const discoveryApi = {
     const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : '';
     return apiFetch(`/api/discovery${qs}`);
   },
-  getCities: () => apiFetch('/api/discovery/cities', { requiresAuth: false }),
+  getCities: async () => {
+    try {
+      const { data } = await supabase.from('cities').select('*, areas(id, name)').eq('is_active', true).order('name');
+      if (data && data.length > 0) return { success: true, cities: data };
+    } catch {}
+    return apiFetch('/api/discovery/cities', { requiresAuth: false });
+  },
   getClientStats: () => apiFetch<{
     success: boolean;
     stats: {
@@ -255,13 +443,62 @@ export const chatApi = {
 
 // ── Requests ──────────────────────────────────────────────────────
 export const requestsApi = {
-  myRequests: (status?: string) => {
+  myRequests: async (status?: string) => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const { data: dbUser } = await supabase.from('users').select('id').eq('firebase_uid', user.uid).maybeSingle();
+        if (dbUser) {
+          let query = supabase
+            .from('meeting_requests')
+            .select(`
+              *,
+              profiles:profiles!meeting_requests_to_profile_id_fkey(
+                display_name, profile_photos(url, is_primary)
+              )
+            `)
+            .eq('from_user_id', dbUser.id)
+            .order('created_at', { ascending: false });
+          if (status && status !== 'ALL') query = query.eq('status', status);
+          const { data, error } = await query;
+          if (!error && data) return { success: true, requests: data };
+        }
+      }
+    } catch {}
     const qs = status ? `?status=${status}` : '';
     return apiFetch(`/api/requests/my${qs}`);
   },
-  create: (data: Record<string, unknown>) =>
-    apiFetch('/api/requests', { method: 'POST', body: JSON.stringify(data) }),
-  cancel: (id: string) => apiFetch(`/api/requests/${id}/cancel`, { method: 'POST' }),
+  create: async (data: Record<string, unknown>) => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const { data: dbUser } = await supabase.from('users').select('id').eq('firebase_uid', user.uid).maybeSingle();
+        if (dbUser) {
+          const { data: inserted, error } = await supabase
+            .from('meeting_requests')
+            .insert({
+              from_user_id: dbUser.id,
+              to_profile_id: data.toProfileId,
+              status: 'SUBMITTED',
+              message: data.message || 'Interested in connecting',
+              meeting_type: data.meetingType || 'COFFEE',
+              proposed_location: data.proposedLocation || 'Flexible',
+            })
+            .select()
+            .single();
+          if (!error && inserted) return { success: true, request: inserted };
+        }
+      }
+    } catch {}
+    return apiFetch('/api/requests', { method: 'POST', body: JSON.stringify(data) });
+  },
+  cancel: async (id: string) => {
+    try {
+      await supabase.from('meeting_requests').update({ status: 'CANCELLED' }).eq('id', id);
+      return { success: true };
+    } catch {}
+    return apiFetch(`/api/requests/${id}/cancel`, { method: 'POST' });
+  },
 };
 
 // ── Requirements ──────────────────────────────────────────────────
@@ -297,11 +534,36 @@ export const paymentsApi = {
   mySubscription: () => apiFetch('/api/payments/my-subscription'),
 };
 
-// ── Dummy Profiles ───────────────────────────────────────────────
+// ── Dummy Profiles (Companion Profiles) ──────────────────────────
 export const dummyProfilesApi = {
-  getProfiles: (state?: string) => {
-    const qs = state && state !== 'ALL' ? `?state=${encodeURIComponent(state)}` : '';
-    return apiFetch(`/api/dummy-profiles${qs}`, { requiresAuth: false });
+  getProfiles: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dummy_companion_profiles')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        const mapped = data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          age: d.age || 24,
+          gender: d.gender || 'FEMALE',
+          avatar: d.avatar || '',
+          distanceKm: d.distance_km || 25,
+          hourlyRate: d.hourly_rate || 2500,
+          bio: d.bio || '',
+          interests: d.interests || ['Coffee Date'],
+          meetingType: `${d.interests?.[0] || 'Companion'} Meetup ☕`,
+          isActive: d.is_active ?? true,
+          created_at: d.created_at,
+        }));
+        return { success: true, profiles: mapped };
+      }
+    } catch (err) {
+      console.warn('Customer dummyProfilesApi supabase error:', err);
+    }
+    return apiFetch('/api/dummy-profiles', { requiresAuth: false });
   },
 };
 

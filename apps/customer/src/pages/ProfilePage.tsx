@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [avatarHover, setAvatarHover] = useState(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [showIdModal, setShowIdModal] = useState(false);
 
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['profile'],
@@ -210,14 +212,53 @@ export default function ProfilePage() {
     );
   }
 
-  const [showIdModal, setShowIdModal] = useState(false);
-
   return (
     <div className="page">
       {/* Top Header with LittleFun Brand Logo, Notifications, and Chat */}
       <Header />
 
       <div className="page-content" style={{ paddingTop: 'var(--space-sm)' }}>
+
+        {/* Verification Status Banner (If Pending) */}
+        {!isVerified && (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(234, 88, 12, 0.08) 100%)',
+              border: '1.5px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: '16px',
+              padding: '12px 16px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#B45309' }}>
+                ⏳ Profile Verification In Progress
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#78350F', marginTop: 2 }}>
+                Your VIP profile is submitted and awaiting admin approval.
+              </div>
+            </div>
+            <Link
+              to="/pending-verification"
+              style={{
+                background: '#D97706',
+                color: '#fff',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Verify Now →
+            </Link>
+          </div>
+        )}
 
         {/* ── UPPER PROFILE HERO CARD (All-in-one Luxury Widget) ── */}
         <div
@@ -358,10 +399,10 @@ export default function ProfilePage() {
             }}
           >
             <span style={{ fontWeight: 600, color: 'var(--color-text-2, #5A4E70)' }}>
-              {uniqueId || (profile?.unique_id as string) || '#LF-88201'}
+              {uniqueId || (profile?.unique_id as string) || (user?.uid ? `#LF-${user.uid.slice(-6).toUpperCase()}` : '#LF-MEMBER')}
             </span>
             <span>•</span>
-            <span>📍 {(profile?.city as string) || 'Mumbai, IN'}</span>
+            <span>📍 {(profile?.city as string) || (profile?.cities as any)?.name || 'India'}</span>
           </div>
 
           {/* Badges */}
@@ -430,7 +471,7 @@ export default function ProfilePage() {
                 fontWeight: 700,
               }}
             >
-              ⚡ Executive Provider
+              ✨ VIP Member
             </span>
           </div>
 
@@ -492,10 +533,10 @@ export default function ProfilePage() {
         <DigitalIdCard
           displayName={userDisplayName}
           photoUrl={primaryPhoto?.url}
-          uniqueId={uniqueId || (profile?.unique_id as string) || '#LF-88201'}
+          uniqueId={uniqueId || (profile?.unique_id as string) || (user?.uid ? `#LF-${user.uid.slice(-6).toUpperCase()}` : '#LF-MEMBER')}
           dateOfBirth={profile?.date_of_birth as string | undefined}
           gender={profile?.gender as string | undefined}
-          city={(profile?.city as string) || 'Mumbai, IN'}
+          city={(profile?.city as string) || (profile?.cities as any)?.name || 'India'}
           isVerified={isVerified}
           email={userEmail}
           phone={userPhone}
@@ -625,14 +666,18 @@ export default function ProfilePage() {
                 <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0' }}>
                   <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>🎂 Age & Gender</div>
                   <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--color-text)', marginTop: 2 }}>
-                    {profile?.age ? `${String(profile.age)} Yrs` : '24 Yrs'} · {profile?.gender === 'MALE' ? 'Male 👨' : profile?.gender === 'FEMALE' ? 'Female 👩' : String(profile?.gender || 'Male 👨')}
+                    {profile?.age
+                      ? `${String(profile.age)} Yrs`
+                      : profile?.date_of_birth
+                      ? `${Math.floor((Date.now() - new Date(String(profile.date_of_birth)).getTime()) / 31557600000)} Yrs`
+                      : 'Not added'} · {profile?.gender === 'MALE' ? 'Male 👨' : profile?.gender === 'FEMALE' ? 'Female 👩' : (profile?.gender ? String(profile.gender) : 'Not specified')}
                   </div>
                 </div>
 
                 <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0' }}>
                   <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>📍 Location</div>
                   <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--color-text)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {(profile?.city as string) || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'Mumbai, Maharashtra'}
+                    {(profile?.city as string) || (profile?.cities as any)?.name || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'Not specified'}
                   </div>
                 </div>
               </div>

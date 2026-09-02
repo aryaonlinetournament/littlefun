@@ -107,6 +107,12 @@ export async function createFirebaseUser(params: {
   return firebaseAdmin.auth().createUser(params);
 }
 
+export async function updateFirebaseUserPassword(uid: string, newPassword: string): Promise<void> {
+  const firebaseAdmin = getFirebaseAdmin();
+  await firebaseAdmin.auth().updateUser(uid, { password: newPassword });
+}
+
+
 export async function sendFcmNotification(params: {
   token: string;
   title: string;

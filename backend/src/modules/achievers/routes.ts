@@ -88,6 +88,17 @@ const getSortedAchievers = () => [...memoryAchievers].sort((a, b) => a.rank_num 
 achieversRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseAdmin();
+    const { data: configData } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'top_achievers')
+      .maybeSingle();
+
+    if (configData?.value && Array.isArray(configData.value) && configData.value.length > 0) {
+      res.json({ success: true, achievers: configData.value.filter((a: any) => a.is_active !== false) });
+      return;
+    }
+
     const { data: dbAchievers, error } = await supabase
       .from('top_achievers')
       .select('*')
@@ -112,6 +123,17 @@ adminAchieversRouter.use(requireAuth, requireAdmin);
 adminAchieversRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseAdmin();
+    const { data: configData } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'top_achievers')
+      .maybeSingle();
+
+    if (configData?.value && Array.isArray(configData.value) && configData.value.length > 0) {
+      res.json({ success: true, achievers: configData.value });
+      return;
+    }
+
     const { data: dbAchievers, error } = await supabase
       .from('top_achievers')
       .select('*')
@@ -152,26 +174,18 @@ adminAchieversRouter.post('/', async (req: Request, res: Response): Promise<void
 
   try {
     const supabase = getSupabaseAdmin();
-    const { data: inserted, error } = await supabase
-      .from('top_achievers')
-      .insert({
-        rank_num: newAchiever.rank_num,
-        name: newAchiever.name,
-        avatar_url: newAchiever.avatar_url,
-        city: newAchiever.city,
-        meetups_count: newAchiever.meetups_count,
-        rating: newAchiever.rating,
-        earnings_amount: newAchiever.earnings_amount,
-        is_active: true,
-      })
-      .select()
-      .maybeSingle();
-
-    if (!error && inserted) {
-      memoryAchievers.unshift(inserted as TopAchiever);
-      res.json({ success: true, achiever: inserted });
-      return;
-    }
+    const { data: configData } = await supabase.from('app_config').select('value').eq('key', 'top_achievers').maybeSingle();
+    const currentList: any[] = Array.isArray(configData?.value) ? configData.value : [...memoryAchievers];
+    const updatedList = [...currentList, newAchiever].sort((a, b) => (a.rank_num || 0) - (b.rank_num || 0));
+    await supabase.from('app_config').upsert({
+      key: 'top_achievers',
+      value: updatedList,
+      description: 'Hall of fame top activity achievers list',
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+    memoryAchievers.unshift(newAchiever);
+    res.json({ success: true, achiever: newAchiever });
+    return;
   } catch (e) {
     console.warn('DB insert fallback:', e);
   }
@@ -197,7 +211,17 @@ adminAchieversRouter.put('/:id', async (req: Request, res: Response): Promise<vo
 
   try {
     const supabase = getSupabaseAdmin();
-    await supabase.from('top_achievers').update(updates).eq('id', id);
+    const { data: configData } = await supabase.from('app_config').select('value').eq('key', 'top_achievers').maybeSingle();
+    const currentList: any[] = Array.isArray(configData?.value) ? configData.value : [...memoryAchievers];
+    const updatedList = currentList.map((a) => (a.id === id ? { ...a, ...updates } : a)).sort((a, b) => (a.rank_num || 0) - (b.rank_num || 0));
+    await supabase.from('app_config').upsert({
+      key: 'top_achievers',
+      value: updatedList,
+      description: 'Hall of fame top activity achievers list',
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+    res.json({ success: true, achiever: updatedAchiever || { id, ...updates } });
+    return;
   } catch (e) {
     console.warn('DB update fallback:', e);
   }
@@ -212,7 +236,15 @@ adminAchieversRouter.delete('/:id', async (req: Request, res: Response): Promise
 
   try {
     const supabase = getSupabaseAdmin();
-    await supabase.from('top_achievers').delete().eq('id', id);
+    const { data: configData } = await supabase.from('app_config').select('value').eq('key', 'top_achievers').maybeSingle();
+    const currentList: any[] = Array.isArray(configData?.value) ? configData.value : [...memoryAchievers];
+    const updatedList = currentList.filter((a) => a.id !== id);
+    await supabase.from('app_config').upsert({
+      key: 'top_achievers',
+      value: updatedList,
+      description: 'Hall of fame top activity achievers list',
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
   } catch (e) {
     console.warn('DB delete fallback:', e);
   }

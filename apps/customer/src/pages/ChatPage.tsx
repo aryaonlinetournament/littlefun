@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { requestsApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
@@ -83,67 +85,165 @@ function formatTime(iso: string) {
 export default function ChatPage() {
   const { conversationId } = useParams<{ conversationId?: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userId } = useAuth();
+  const currentUid = userId || user?.uid;
+
+  // Clear any legacy demo data from global keys
+  try {
+    const legacyChats = localStorage.getItem('lf_local_chats');
+    if (legacyChats) localStorage.removeItem('lf_local_chats');
+    const legacyBids = localStorage.getItem('lf_user_bids');
+    if (legacyBids) localStorage.removeItem('lf_user_bids');
+  } catch {}
 
   const [searchQuery, setSearchQuery] = useState('');
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [localChats, setLocalChats] = useState<LocalChatSession[]>(() => {
-    const saved = localStorage.getItem('lf_local_chats');
+    const key = currentUid ? `lf_local_chats_${currentUid}` : 'lf_local_chats_guest';
+    const saved = localStorage.getItem(key);
     if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* ignore */ }
     }
-    // Default initial chat session with Priya Sharma
-    return [
-      {
-        id: 'c-priya',
-        companionId: 'c-priya',
-        name: 'Priya Sharma',
-        area: 'Connaught Place, Delhi NCR',
-        hourlyRate: 2500,
-        avatar: DEFAULT_AVATAR,
-        lastMessage: "Hey there! 😊 Yes, I'd love to meet for coffee in Connaught Place!",
-        updatedAt: new Date().toISOString(),
-        unreadCount: 1,
-        messages: [
-          {
-            id: 'm1',
-            senderId: 'c-priya',
-            senderName: 'Priya Sharma',
-            text: "Hi! Welcome to LittleFun. I'm available for evening coffee meetups in Connaught Place! ☕",
-            time: new Date(Date.now() - 3600000).toISOString(),
-            isMine: false,
-          },
-          {
-            id: 'm2',
-            senderId: 'c-priya',
-            senderName: 'Priya Sharma',
-            text: "Hey there! 😊 Yes, I'd love to meet for coffee in Connaught Place! Let know what time works best for you!",
-            time: new Date().toISOString(),
-            isMine: false,
-          },
-        ],
-      },
-    ];
+    return []; // Completely empty for new users!
   });
+
+  useEffect(() => {
+    const key = currentUid ? `lf_local_chats_${currentUid}` : 'lf_local_chats_guest';
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setLocalChats(parsed);
+          return;
+        }
+      } catch {}
+    }
+    setLocalChats([]);
+  }, [currentUid]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Sync local chats to localStorage
+  // Sync local chats to user-scoped localStorage
   useEffect(() => {
-    localStorage.setItem('lf_local_chats', JSON.stringify(localChats));
-  }, [localChats]);
+    const key = currentUid ? `lf_local_chats_${currentUid}` : 'lf_local_chats_guest';
+    localStorage.setItem(key, JSON.stringify(localChats));
+  }, [localChats, currentUid]);
+
+  // Ensure navigated chat exists without pre-fabricated messages
+  useEffect(() => {
+    if (conversationId && !localChats.some((c) => c.id === conversationId)) {
+      const comp = QUICK_COMPANIONS.find((c) => c.id === conversationId);
+      if (comp) {
+        const newChat: LocalChatSession = {
+          id: comp.id,
+          companionId: comp.id,
+          name: comp.name,
+          area: comp.area,
+          hourlyRate: comp.hourlyRate,
+          avatar: comp.avatar,
+          lastMessage: '',
+          updatedAt: new Date().toISOString(),
+          unreadCount: 0,
+          messages: [],
+        };
+        setLocalChats((prev) => [newChat, ...prev]);
+      }
+    }
+  }, [conversationId, localChats]);
+
+  // Query live server requests and merge with user-scoped localStorage bids
+  const { data: serverRequestsData } = useQuery({
+    queryKey: ['my-server-requests-chat', currentUid],
+    queryFn: () => requestsApi.myRequests().catch(() => null),
+    refetchInterval: 5_000,
+  });
+
+  const bids: any[] = (() => {
+    let local: any[] = [];
+    try {
+      const key = currentUid ? `lf_user_bids_${currentUid}` : 'lf_user_bids_guest';
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        local = JSON.parse(saved);
+      }
+    } catch {}
+    const server = ((serverRequestsData as any)?.requests || []).map((r: any) => ({
+      id: r.id,
+      requestId: r.to_profile_id,
+      targetName: r.profiles?.display_name || '',
+      status: r.status,
+      amount: 2500,
+    }));
+    const combined = [...local];
+    server.forEach((sb: any) => {
+      const idx = combined.findIndex((lb) =>
+        lb.id === sb.id ||
+        lb.requestId === sb.requestId ||
+        (lb.targetName && sb.targetName && lb.targetName.toLowerCase() === sb.targetName.toLowerCase())
+      );
+      if (idx >= 0) {
+        combined[idx] = { ...combined[idx], status: sb.status };
+      } else {
+        combined.push(sb);
+      }
+    });
+    return combined;
+  })();
+
+  const getProposalForCompanion = (compName: string, compId?: string) => {
+    return bids.find((b: any) =>
+      (b.targetName && compName && b.targetName.toLowerCase() === compName.toLowerCase()) ||
+      (compId && (b.requestId === compId || b.id === compId))
+    );
+  };
 
   const activeChat = localChats.find((c) => c.id === conversationId);
+  const fallbackComp = QUICK_COMPANIONS.find((c) => c.id === conversationId);
+  const currentChat = activeChat || (fallbackComp ? {
+    id: fallbackComp.id,
+    companionId: fallbackComp.id,
+    name: fallbackComp.name,
+    area: fallbackComp.area,
+    hourlyRate: fallbackComp.hourlyRate,
+    avatar: fallbackComp.avatar,
+    lastMessage: '',
+    updatedAt: new Date().toISOString(),
+    unreadCount: 0,
+    messages: [],
+  } : {
+    id: conversationId || '',
+    companionId: conversationId || '',
+    name: 'Companion',
+    area: 'City Area',
+    hourlyRate: 2500,
+    avatar: DEFAULT_AVATAR,
+    lastMessage: '',
+    updatedAt: new Date().toISOString(),
+    unreadCount: 0,
+    messages: [],
+  });
+
+  const currentProposal = currentChat ? getProposalForCompanion(currentChat.name, (currentChat as any).companionId || currentChat.id) : null;
+  const isProposalAccepted = currentProposal?.status === 'ACCEPTED' || currentProposal?.status === 'CONFIRMED';
+  const isProposalPending = currentProposal?.status === 'SUBMITTED' || currentProposal?.status === 'PENDING' || currentProposal?.status === 'PENDING_RESPONSE';
+  const isProposalRejected = currentProposal?.status === 'REJECTED' || currentProposal?.status === 'CANCELLED';
+  const hasProposal = Boolean(currentProposal);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversationId, activeChat?.messages.length, isTyping]);
 
-
-
-  // Handle sending message & companion auto-reply
+  // Handle sending message & companion auto-reply (Only allowed if Proposal Accepted!)
   const handleSendMessage = (msgText?: string) => {
+    if (!isProposalAccepted) {
+      alert('🔒 Chat Locked: Message sirf tabhi bhej sakte hain jab samne wala companion aapka proposal ACCEPT kare.');
+      return;
+    }
     const content = (msgText || text).trim();
     if (!content || !conversationId) return;
 
@@ -179,7 +279,7 @@ export default function ChatPage() {
       const replies = [
         compInfo.reply,
         `That sounds fantastic! Shall we confirm for tomorrow around 6 PM in ${activeChat?.area || 'the city'}? 🌸`,
-        `I'd love that! Send me a connection proposal request so we can finalize the rate and location! 💖`,
+        `I'd love that! Meeting in person will be so much fun. 💖`,
         `Sounds great! I love good conversation & coffee dates. Looking forward to meeting you! ☕✨`,
       ];
       const randomReply = replies[Math.floor(Math.random() * replies.length)];
@@ -349,15 +449,6 @@ export default function ChatPage() {
   }
 
   // ── INDIVIDUAL CHAT ROOM VIEW ─────────────────────────────────────────────
-  const currentChat = activeChat || {
-    id: conversationId,
-    name: 'Companion',
-    area: 'City Area',
-    hourlyRate: 2500,
-    avatar: DEFAULT_AVATAR,
-    messages: [],
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#FDF2F8', overflow: 'hidden' }}>
       {/* Room Header */}
@@ -457,27 +548,76 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick Action Suggestion Chips */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 12px', background: 'var(--color-surface)', borderTop: '1px solid var(--color-border)', scrollbarWidth: 'none' }}>
-        {[
-          '☕ Are you free for coffee tomorrow?',
-          '📍 What area in CP do you prefer?',
-          '🎯 I sent a meetup proposal!',
-          '🌸 Tell me more about your interests!',
-        ].map((chip, idx) => (
-          <button
-            key={idx}
-            style={{
-              fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', padding: '4px 10px',
-              borderRadius: 99, border: '1px solid #EC4899', background: 'rgba(236,72,153,0.06)',
-              color: '#BE185D', cursor: 'pointer', flexShrink: 0
-            }}
-            onClick={() => handleSendMessage(chip)}
-          >
-            {chip}
-          </button>
-        ))}
-      </div>
+      {/* Explanatory Banner when Chat is Locked */}
+      {!isProposalAccepted && (
+        <div style={{
+          background: isProposalPending ? 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' : '#F8FAFC',
+          border: '1.5px solid ' + (isProposalPending ? '#FCD34D' : '#CBD5E1'),
+          borderRadius: 14,
+          padding: '12px 16px',
+          margin: '0 12px 8px',
+          textAlign: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{ fontSize: '1.2rem', marginBottom: 2 }}>
+            {isProposalPending ? '⏳' : isProposalRejected ? '❌' : '🔒'}
+          </div>
+          <div style={{ fontWeight: 800, fontSize: '0.88rem', color: isProposalPending ? '#92400E' : isProposalRejected ? '#991B1B' : '#1E293B' }}>
+            {isProposalPending
+              ? 'Proposal Under Review'
+              : isProposalRejected
+              ? 'Proposal Declined'
+              : 'Proposal Required to Chat'}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: isProposalPending ? '#78350F' : isProposalRejected ? '#7F1D1D' : '#64748B', marginTop: 3, lineHeight: 1.4 }}>
+            {isProposalPending ? (
+              <>Aapka proposal <strong>{currentChat.name}</strong> ko bhej diya gaya hai.<br /><strong>Jab tak samne wala proposal ACCEPT nahi karta, tab tak message nahi kar sakte.</strong></>
+            ) : isProposalRejected ? (
+              <>Companion ne aapka proposal decline kar diya hai. Chat unlocked nahi hai.</>
+            ) : (
+              <>Aapne abhi tak <strong>{currentChat.name}</strong> ko proposal nahi bheja hai.<br />Message karne ke liye pehle proposal bhejein aur accept hone ka intezar karein.</>
+            )}
+          </div>
+          {!hasProposal && (
+            <button
+              type="button"
+              onClick={() => navigate('/requests')}
+              style={{
+                marginTop: 8, background: 'linear-gradient(135deg, var(--color-primary), #E11D48)',
+                color: 'white', border: 'none', borderRadius: 99, padding: '6px 14px',
+                fontSize: '0.76rem', fontWeight: 800, cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(225,29,72,0.25)'
+              }}
+            >
+              🎯 Discover & Send Proposal Now
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Quick Action Suggestion Chips (Only if proposal accepted) */}
+      {isProposalAccepted && (
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 12px', background: 'var(--color-surface)', borderTop: '1px solid var(--color-border)', scrollbarWidth: 'none' }}>
+          {[
+            '☕ Are you free for coffee tomorrow?',
+            '📍 What area do you prefer to meet?',
+            '🎯 Looking forward to our meetup!',
+            '🌸 Tell me more about your hobbies!',
+          ].map((chip, idx) => (
+            <button
+              key={idx}
+              style={{
+                fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', padding: '4px 10px',
+                borderRadius: 99, border: '1px solid #EC4899', background: 'rgba(236,72,153,0.06)',
+                color: '#BE185D', cursor: 'pointer', flexShrink: 0
+              }}
+              onClick={() => handleSendMessage(chip)}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Input Bar */}
       <div style={{
@@ -486,13 +626,23 @@ export default function ChatPage() {
         display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0
       }}>
         <button
-          onClick={() => alert('Image attachment feature enabled')}
-          style={{
-            background: 'none', border: '1.5px solid var(--color-border)', borderRadius: '50%',
-            width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', flexShrink: 0, fontSize: '1.1rem'
+          onClick={() => {
+            if (!isProposalAccepted) {
+              alert('🔒 Chat Locked: Jab tak companion proposal accept nahi karega, media attachments blocked hain.');
+              return;
+            }
+            alert('Image attachment feature enabled');
           }}
-          title="Send image"
+          disabled={!isProposalAccepted}
+          style={{
+            background: 'none',
+            border: '1.5px solid ' + (!isProposalAccepted ? '#E2E8F0' : 'var(--color-border)'),
+            borderRadius: '50%',
+            width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: !isProposalAccepted ? 'not-allowed' : 'pointer', flexShrink: 0, fontSize: '1.1rem',
+            opacity: !isProposalAccepted ? 0.5 : 1
+          }}
+          title={!isProposalAccepted ? 'Locked' : 'Send image'}
         >
           📷
         </button>
@@ -500,12 +650,23 @@ export default function ChatPage() {
         <input
           type="text"
           className="form-input"
+          disabled={!isProposalAccepted}
           style={{
             flex: 1, padding: '10px 14px', borderRadius: 99, fontSize: '0.88rem',
-            border: '1.5px solid var(--color-border)', outline: 'none', background: 'var(--color-surface-2)',
-            color: 'var(--color-text)', fontWeight: 500
+            border: '1.5px solid ' + (!isProposalAccepted ? '#E2E8F0' : 'var(--color-border)'),
+            outline: 'none',
+            background: !isProposalAccepted ? '#F8FAFC' : 'var(--color-surface-2)',
+            color: !isProposalAccepted ? '#94A3B8' : 'var(--color-text)',
+            cursor: !isProposalAccepted ? 'not-allowed' : 'text',
+            fontWeight: 500
           }}
-          placeholder={`Message ${currentChat.name}…`}
+          placeholder={
+            !isProposalAccepted
+              ? isProposalPending
+                ? '🔒 Chat locked: Awaiting acceptance'
+                : '🔒 Chat locked: Send proposal first'
+              : `Message ${currentChat.name}…`
+          }
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -515,16 +676,21 @@ export default function ChatPage() {
 
         <button
           onClick={() => handleSendMessage()}
-          disabled={!text.trim()}
+          disabled={!text.trim() || !isProposalAccepted}
           style={{
             width: 40, height: 40, borderRadius: '50%', border: 'none',
-            background: text.trim() ? 'linear-gradient(135deg, var(--color-primary), #E11D48)' : 'var(--color-border)',
-            color: 'white', fontSize: '1.1rem', cursor: text.trim() ? 'pointer' : 'not-allowed',
+            background: (text.trim() && isProposalAccepted)
+              ? 'linear-gradient(135deg, var(--color-primary), #E11D48)'
+              : '#E2E8F0',
+            color: (text.trim() && isProposalAccepted) ? 'white' : '#94A3B8',
+            fontSize: '1.1rem',
+            cursor: (text.trim() && isProposalAccepted) ? 'pointer' : 'not-allowed',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            boxShadow: text.trim() ? '0 4px 12px rgba(225,29,72,0.3)' : 'none'
+            boxShadow: (text.trim() && isProposalAccepted) ? '0 4px 12px rgba(225,29,72,0.3)' : 'none'
           }}
+          title={!isProposalAccepted ? 'Chat is locked until proposal is accepted' : 'Send message'}
         >
-          🚀
+          {!isProposalAccepted ? '🔒' : '🚀'}
         </button>
       </div>
     </div>

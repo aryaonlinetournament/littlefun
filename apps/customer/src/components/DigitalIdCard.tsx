@@ -20,10 +20,10 @@ interface DigitalIdCardProps {
 export default function DigitalIdCard({
   displayName,
   photoUrl,
-  uniqueId = '#LF-88201',
+  uniqueId = '#LF-MEMBER',
   dateOfBirth,
   gender,
-  city = 'Mumbai, IN',
+  city = 'India',
   isVerified = false,
   memberSince = '2026',
   onEdit,

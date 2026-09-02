@@ -5,6 +5,8 @@ import { adminApi } from '../lib/api';
 type User = {
   id: string;
   email: string;
+  phone?: string | null;
+  name?: string | null;
   unique_id: string;
   role: string;
   status: string;
@@ -25,8 +27,17 @@ export default function UsersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', temporaryPassword: '', role: 'CUSTOMER', planName: 'FREE', city: '' });
-  const [createdCreds, setCreatedCreds] = useState<{ email: string; uniqueId: string } | null>(null);
+  const [newUser, setNewUser] = useState({ name: '', email: '', phone: '', temporaryPassword: '', role: 'CUSTOMER', planName: 'FREE', city: '' });
+  const [createdCreds, setCreatedCreds] = useState<{ email: string; uniqueId: string; password?: string } | null>(null);
+
+  // Reset Password Modal State
+  const [resetUser, setResetUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetSuccessCreds, setResetSuccessCreds] = useState<{ email: string; uniqueId: string; password: string } | null>(null);
+
+  // Edit User Modal State
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', planName: 'FREE' });
 
   // Boost Views Modal State
   const [boostUser, setBoostUser] = useState<User | null>(null);
@@ -94,17 +105,44 @@ export default function UsersPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof newUser) => adminApi.createCustomer(data) as Promise<{ user: { email: string; unique_id: string } }>,
-    onSuccess: (result) => {
-      setCreatedCreds({ email: result.user.email, uniqueId: result.user.unique_id });
+    mutationFn: (data: typeof newUser) =>
+      adminApi.createCustomer(data) as Promise<{
+        credentials?: { email: string; uniqueId: string; temporaryPassword?: string };
+        user: { email: string; unique_id: string };
+      }>,
+    onSuccess: (result, variables) => {
+      setCreatedCreds({
+        email: result.credentials?.email || result.user.email,
+        uniqueId: result.credentials?.uniqueId || result.user.unique_id,
+        password: result.credentials?.temporaryPassword || variables.temporaryPassword || 'Auto-generated',
+      });
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      setNewUser({ name: '', email: '', temporaryPassword: '', role: 'CUSTOMER', planName: 'FREE', city: '' });
+      setNewUser({ name: '', email: '', phone: '', temporaryPassword: '', role: 'CUSTOMER', planName: 'FREE', city: '' });
     },
   });
 
-  const registrationUrl = typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:5173/register`
-    : 'https://littlefunwithpartner.web.app/register';
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ userId, newPassword }: { userId: string; newPassword?: string }) =>
+      adminApi.resetUserPassword(userId, newPassword) as Promise<{
+        credentials: { email: string; uniqueId: string; password: string };
+      }>,
+    onSuccess: (result) => {
+      setResetSuccessCreds(result.credentials);
+      setNewPassword('');
+    },
+  });
+
+  const editUserMutation = useMutation({
+    mutationFn: ({ userId, data }: { userId: string; data: typeof editForm }) =>
+      adminApi.updateUserDetails(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setEditUser(null);
+    },
+  });
+
+
+  const registrationUrl = 'https://littlefunwithpartner.web.app/register';
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(registrationUrl);
@@ -180,6 +218,7 @@ export default function UsersPage() {
                 <tr>
                   <th>Client ID</th>
                   <th>Email</th>
+                  <th>Phone Number</th>
                   <th>Role</th>
                   <th>Status</th>
                   <th>Plan</th>
@@ -195,7 +234,46 @@ export default function UsersPage() {
                         {u.unique_id || '—'}
                       </span>
                     </td>
-                    <td>{u.email}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{u.email}</div>
+                      {u.name && (
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-3)' }}>👤 {u.name}</div>
+                      )}
+                    </td>
+                    <td>
+                      {u.phone ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                          <a
+                            href={`tel:${u.phone}`}
+                            style={{
+                              fontFamily: 'monospace',
+                              fontWeight: 600,
+                              color: 'var(--text-1)',
+                              textDecoration: 'none',
+                            }}
+                            title="Call user"
+                          >
+                            📞 {u.phone}
+                          </a>
+                          <a
+                            href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Chat on WhatsApp"
+                            style={{
+                              textDecoration: 'none',
+                              fontSize: '0.95rem',
+                              lineHeight: 1,
+                              display: 'inline-flex',
+                            }}
+                          >
+                            💬
+                          </a>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>—</span>
+                      )}
+                    </td>
                     <td><span className="badge badge-neutral">{u.role}</span></td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[u.status] ?? 'badge-neutral'}`}>
@@ -226,6 +304,34 @@ export default function UsersPage() {
                             Reactivate
                           </button>
                         ) : null}
+                        <button
+                          className="btn btn-xs btn-outline"
+                          onClick={() => {
+                            setResetUser(u);
+                            setNewPassword('');
+                            setResetSuccessCreds(null);
+                          }}
+                          title="Reset customer password & copy credentials"
+                          style={{ color: '#D97706', borderColor: '#FDE68A' }}
+                        >
+                          🔑 Pwd
+                        </button>
+                        <button
+                          className="btn btn-xs btn-outline"
+                          onClick={() => {
+                            setEditUser(u);
+                            setEditForm({
+                              name: u.name || '',
+                              phone: u.phone || '',
+                              email: u.email,
+                              planName: u.plan_name || 'FREE',
+                            });
+                          }}
+                          title="Edit customer details"
+                          style={{ color: '#4F46E5', borderColor: '#C7D2FE' }}
+                        >
+                          ✏️ Edit
+                        </button>
                         <button
                           className="btn btn-xs btn-outline"
                           onClick={() => handleOpenBoost(u)}
@@ -339,15 +445,68 @@ export default function UsersPage() {
               <button className="modal-close" onClick={() => setShowCreate(false)}>✕</button>
             </div>
             {createdCreds ? (
-              <div className="modal-body" style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ fontSize: '2rem', marginBottom: 12 }}>🎉</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 6 }}>User Created!</div>
-                <div style={{ fontSize: '0.88rem', color: 'var(--text-2)', marginBottom: 20 }}>
-                  Unique ID: <strong>{createdCreds.uniqueId}</strong>
+              <div className="modal-body" style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🎉</div>
+                <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: 4 }}>VIP Customer Created!</div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-2)', marginBottom: 16 }}>
+                  Account is active and ready for customer sign-in:
+                </p>
+
+                <div style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  textAlign: 'left',
+                  marginBottom: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-3)' }}>Client ID:</span>
+                    <strong style={{ fontFamily: 'monospace', color: 'var(--primary)' }}>{createdCreds.uniqueId}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-3)' }}>Email:</span>
+                    <strong style={{ fontFamily: 'monospace' }}>{createdCreds.email}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-3)' }}>Password:</span>
+                    <strong style={{ fontFamily: 'monospace', color: 'var(--success)' }}>{createdCreds.password || 'LF@VIP123'}</strong>
+                  </div>
                 </div>
-                <button className="btn btn-primary" onClick={() => { setShowCreate(false); setCreatedCreds(null); }}>
-                  Done
-                </button>
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      const text = `LittleFun VIP Account Credentials\nWebsite: https://littlefunwithpartner.web.app/login\nClient ID: ${createdCreds.uniqueId}\nEmail: ${createdCreds.email}\nPassword: ${createdCreds.password || 'LF@VIP123'}`;
+                      navigator.clipboard.writeText(text);
+                      alert('Credentials copied to clipboard!');
+                    }}
+                  >
+                    📋 Copy Credentials
+                  </button>
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      `Hello! Your LittleFun VIP Account is ready.\n\n🌐 Login URL: https://littlefunwithpartner.web.app/login\n🆔 Member ID: ${createdCreds.uniqueId}\n✉️ Email: ${createdCreds.email}\n🔑 Password: ${createdCreds.password || 'LF@VIP123'}\n\nPlease sign in to view your profile and connections!`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-primary btn-sm"
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    💬 Share on WhatsApp
+                  </a>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowCreate(false); setCreatedCreds(null); }}>
+                    Done / Close
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(newUser); }}>
@@ -361,6 +520,11 @@ export default function UsersPage() {
                     <label className="form-label">Email *</label>
                     <input className="form-input" type="email" value={newUser.email}
                       onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="client@example.com" required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Phone Number (Optional)</label>
+                    <input className="form-input" type="tel" value={newUser.phone}
+                      onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} placeholder="+91 98765 43210" />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Temporary Password (Optional)</label>
@@ -484,6 +648,196 @@ export default function UsersPage() {
                   style={{ background: '#0284C7', borderColor: '#0284C7' }}
                 >
                   {boostMutation.isPending ? 'Saving...' : 'Save Boost Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {resetUser && (
+        <div className="modal-backdrop" onClick={() => { setResetUser(null); setResetSuccessCreds(null); }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="modal-header">
+              <div className="modal-title">🔑 Reset Customer Password</div>
+              <button className="modal-close" onClick={() => { setResetUser(null); setResetSuccessCreds(null); }}>✕</button>
+            </div>
+
+            {resetSuccessCreds ? (
+              <div className="modal-body" style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>✅</div>
+                <div style={{ fontWeight: 700, fontSize: '1.15rem', marginBottom: 6 }}>Password Updated!</div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-2)', marginBottom: 16 }}>
+                  Customer can now login with this new password immediately:
+                </p>
+
+                <div style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  textAlign: 'left',
+                  marginBottom: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-3)' }}>Client ID:</span>
+                    <strong style={{ fontFamily: 'monospace', color: 'var(--primary)' }}>{resetSuccessCreds.uniqueId}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-3)' }}>Email:</span>
+                    <strong style={{ fontFamily: 'monospace' }}>{resetSuccessCreds.email}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-3)' }}>New Password:</span>
+                    <strong style={{ fontFamily: 'monospace', color: 'var(--success)' }}>{resetSuccessCreds.password}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      const text = `LittleFun VIP Login Credentials\nWebsite: https://littlefunwithpartner.web.app/login\nClient ID: ${resetSuccessCreds.uniqueId}\nEmail: ${resetSuccessCreds.email}\nPassword: ${resetSuccessCreds.password}`;
+                      navigator.clipboard.writeText(text);
+                      alert('New credentials copied to clipboard!');
+                    }}
+                  >
+                    📋 Copy Info
+                  </button>
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      `Hello! Your LittleFun VIP password has been updated.\n\n🌐 Login URL: https://littlefunwithpartner.web.app/login\n🆔 Member ID: ${resetSuccessCreds.uniqueId}\n✉️ Email: ${resetSuccessCreds.email}\n🔑 New Password: ${resetSuccessCreds.password}\n\nPlease sign in with your new password.`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-primary btn-sm"
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    💬 Share on WhatsApp
+                  </a>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setResetUser(null); setResetSuccessCreds(null); }}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                resetPasswordMutation.mutate({ userId: resetUser.id, newPassword: newPassword.trim() || undefined });
+              }}>
+                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ background: 'var(--surface-2)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-3)' }}>Customer:</div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>{resetUser.email}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--primary)', fontFamily: 'monospace' }}>{resetUser.unique_id}</div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">New Password</label>
+                    <input
+                      className="form-input"
+                      type="text"
+                      placeholder="Leave blank to auto-generate a strong password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', marginTop: 4 }}>
+                      If blank, an instant VIP password like <code>LF@Abc123</code> will be generated.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-ghost" onClick={() => setResetUser(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={resetPasswordMutation.isPending}
+                  >
+                    {resetPasswordMutation.isPending ? 'Updating…' : '🔑 Set New Password'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Details Modal */}
+      {editUser && (
+        <div className="modal-backdrop" onClick={() => setEditUser(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <div className="modal-title">✏️ Edit Customer Details</div>
+              <button className="modal-close" onClick={() => setEditUser(null)}>✕</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              editUserMutation.mutate({ userId: editUser.id, data: editForm });
+            }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ background: 'var(--surface-2)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 700 }}>
+                    {editUser.unique_id}
+                  </div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{editUser.email}</div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Full Name / Display Name</label>
+                  <input
+                    className="form-input"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    placeholder="Enter customer name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Phone Number</label>
+                  <input
+                    className="form-input"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    placeholder="+91 9876543210"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Subscription Plan</label>
+                  <select
+                    className="form-select"
+                    value={editForm.planName}
+                    onChange={(e) => setEditForm({ ...editForm, planName: e.target.value })}
+                  >
+                    <option value="FREE">FREE</option>
+                    <option value="BASIC">BASIC</option>
+                    <option value="PRO">PRO</option>
+                    <option value="PREMIUM">PREMIUM</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setEditUser(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editUserMutation.isPending}
+                >
+                  {editUserMutation.isPending ? 'Saving…' : 'Save Details'}
                 </button>
               </div>
             </form>

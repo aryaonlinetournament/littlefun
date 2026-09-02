@@ -9,8 +9,9 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { auth } from '../lib/firebase';
-import { authApi, usersApi, type ClientRegisterPayload } from '../lib/api';
+import { authApi, usersApi, clearTokenCache, type ClientRegisterPayload } from '../lib/api';
 
 export type UserStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'BANNED' | 'DELETED';
 export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'NOT_SUBMITTED';
@@ -52,6 +53,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [uniqueId, setUniqueId] = useState<string | null>(null);
@@ -77,12 +79,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserStatus(meData.user.status);
         setUserRole(meData.user.role);
         if (meData.user.unique_id) setUniqueId(meData.user.unique_id);
-        if (meData.user.profiles?.verification_status) {
-          setVerificationStatus(meData.user.profiles.verification_status);
-        }
 
-        const isSuperAdmin = meData.user.role === 'SUPER_ADMIN' || meData.user.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
-        const isApproved = isSuperAdmin || (meData.user.status === 'ACTIVE' && meData.user.profiles?.verification_status === 'APPROVED');
+        const profileObj = Array.isArray(meData.user.profiles)
+          ? meData.user.profiles[0]
+          : meData.user.profiles;
+
+        const effectiveVerifStatus: VerificationStatus =
+          profileObj?.verification_status ?? (meData.user.status === 'ACTIVE' ? 'APPROVED' : 'PENDING');
+        setVerificationStatus(effectiveVerifStatus);
+
+        const isSuperAdmin =
+          meData.user.role === 'SUPER_ADMIN' ||
+          meData.user.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
+
+        const isApproved =
+          isSuperAdmin ||
+          meData.user.status === 'ACTIVE' ||
+          effectiveVerifStatus === 'APPROVED';
 
         return {
           userStatus: meData.user.status,
@@ -102,6 +115,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTokenCache();
+      queryClient.clear();
       setUser(firebaseUser);
 
       if (firebaseUser) {
@@ -119,10 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, [syncUserData]);
+  }, [syncUserData, queryClient]);
 
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
+    clearTokenCache();
+    queryClient.clear();
     const cred = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     setUser(cred.user);
     const result = await syncUserData();
@@ -132,6 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, displayName?: string) => {
     setIsLoading(true);
+    clearTokenCache();
+    queryClient.clear();
     const cred = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     if (displayName && cred.user) {
       await updateProfile(cred.user, { displayName });
@@ -165,6 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logOut = async () => {
+    clearTokenCache();
+    queryClient.clear();
     await signOut(auth);
     setUser(null);
     setUserId(null);
@@ -175,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isSuperAdmin = userRole === 'SUPER_ADMIN' || user?.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
-  const isApproved = isSuperAdmin || (userStatus === 'ACTIVE' && verificationStatus === 'APPROVED');
+  const isApproved = isSuperAdmin || userStatus === 'ACTIVE' || verificationStatus === 'APPROVED';
   const isPendingApproval = Boolean(user) && !isApproved;
 
   return (

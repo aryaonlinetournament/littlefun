@@ -19,21 +19,6 @@ export default function CitiesPage() {
   const [cityForm, setCityForm] = useState({ name: '', state: '' });
   const [areaForm, setAreaForm] = useState({ name: '' });
 
-  // Master City & Area State
-  const [cityToggles, setCityToggles] = useState<Record<string, boolean>>({
-    'Delhi': true,
-    'Mumbai': true,
-    'Gurgaon': true,
-    'Bengaluru': true,
-  });
-
-  const [cityMaxProfiles, setCityMaxProfiles] = useState<Record<string, number>>({
-    'Delhi': 15,
-    'Mumbai': 15,
-    'Gurgaon': 10,
-    'Bengaluru': 12,
-  });
-
   const { data, isLoading } = useQuery({
     queryKey: ['cities-admin'],
     queryFn: () => adminApi.cities() as Promise<{ cities: City[] }>,
@@ -56,16 +41,21 @@ export default function CitiesPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['cities-admin'] }); setShowAddArea(null); setAreaForm({ name: '' }); },
   });
 
-  const toggleCityActive = (cityName: string) => {
-    setCityToggles((prev) => ({ ...prev, [cityName]: !(prev[cityName] ?? true) }));
+  const updateCityMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
+      adminApi.updateCity(id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cities-admin'] }),
+  });
+
+  const toggleCityActive = (city: City) => {
+    updateCityMutation.mutate({ id: city.id, updates: { is_active: !(city.is_active ?? true) } });
   };
 
-  const updateMaxProfiles = (cityName: string, delta: number) => {
-    setCityMaxProfiles((prev) => ({
-      ...prev,
-      [cityName]: Math.max(1, (prev[cityName] ?? 10) + delta),
-    }));
+  const updateMaxProfiles = (city: City, delta: number) => {
+    const newMax = Math.max(1, (city.max_profiles ?? 10) + delta);
+    updateCityMutation.mutate({ id: city.id, updates: { max_profiles: newMax } });
   };
+
 
   return (
     <>
@@ -85,8 +75,8 @@ export default function CitiesPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
             {cities.map((city: City) => {
-              const isActive = cityToggles[city.name] ?? true;
-              const maxProf = cityMaxProfiles[city.name] ?? city.max_profiles ?? 15;
+              const isActive = city.is_active ?? true;
+              const maxProf = city.max_profiles ?? 15;
 
               return (
                 <div
@@ -114,7 +104,7 @@ export default function CitiesPage() {
                       <button
                         className={`btn btn-xs ${isActive ? 'btn-ghost' : 'btn-primary'}`}
                         style={{ color: isActive ? 'var(--color-error)' : 'white' }}
-                        onClick={() => toggleCityActive(city.name)}
+                        onClick={() => toggleCityActive(city)}
                       >
                         {isActive ? 'Disable City' : 'Enable City'}
                       </button>
@@ -129,7 +119,7 @@ export default function CitiesPage() {
                         <button
                           className="btn btn-xs btn-outline"
                           style={{ padding: '2px 8px' }}
-                          onClick={() => updateMaxProfiles(city.name, -1)}
+                          onClick={() => updateMaxProfiles(city, -1)}
                         >
                           -
                         </button>
@@ -137,7 +127,7 @@ export default function CitiesPage() {
                         <button
                           className="btn btn-xs btn-outline"
                           style={{ padding: '2px 8px' }}
-                          onClick={() => updateMaxProfiles(city.name, 1)}
+                          onClick={() => updateMaxProfiles(city, 1)}
                         >
                           +
                         </button>

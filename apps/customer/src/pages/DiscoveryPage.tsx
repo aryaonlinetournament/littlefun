@@ -84,11 +84,12 @@ export default function DiscoveryPage() {
   const [requestMessage, setRequestMessage] = useState('');
   const [requestToast, setRequestToast] = useState<string | null>(null);
 
-  // Live Top Achievers Query
+  // Live Top Achievers Query (realtime sync with Admin Hall of Fame)
   const { data: fetchedAchievers } = useQuery({
     queryKey: ['top-achievers'],
     queryFn: () => achieversApi.getTop(),
-    staleTime: 60 * 1000,
+    staleTime: 5 * 1000,
+    refetchInterval: 10 * 1000,
   });
 
   // Dynamic Client Stats Query (Views 0 on Day 0, +2% daily, +10% Sun, meetups 10-99 weekly Sat)

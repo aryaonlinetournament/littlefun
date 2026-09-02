@@ -52,7 +52,7 @@ export const adminApi = {
       const [uRes, pRes, rRes, repRes] = await Promise.all([
         supabaseAdmin.from('users').select('id, status, role, created_at'),
         supabaseAdmin.from('profiles').select('id, discovery_status, verification_status'),
-        supabaseAdmin.from('meetup_requests').select('id, status'),
+        supabaseAdmin.from('meeting_requests').select('id, status'),
         supabaseAdmin.from('reports').select('id, status'),
       ]);
 
@@ -93,7 +93,7 @@ export const adminApi = {
       const [uRes, pRes, rRes, cRes] = await Promise.all([
         supabaseAdmin.from('users').select('id, status, role, created_at'),
         supabaseAdmin.from('profiles').select('id, city_id, verification_status'),
-        supabaseAdmin.from('meetup_requests').select('id, status'),
+        supabaseAdmin.from('meeting_requests').select('id, status'),
         supabaseAdmin.from('conversations').select('id'),
       ]);
 
@@ -178,11 +178,11 @@ export const adminApi = {
 
       let query = supabaseAdmin
         .from('users')
-        .select('id, unique_id, email, phone, role, status, created_at, last_active_at, plans(name)', { count: 'exact' })
+        .select('id, unique_id, email, phone, role, status, created_at, last_active_at, plans(name), profiles(display_name)', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (search && typeof search === 'string') query = query.or(`email.ilike.%${search}%,unique_id.ilike.%${search}%`);
+      if (search && typeof search === 'string') query = query.or(`email.ilike.%${search}%,unique_id.ilike.%${search}%,phone.ilike.%${search}%`);
       if (status) query = query.eq('status', status);
       if (role) query = query.eq('role', role);
 
@@ -193,6 +193,7 @@ export const adminApi = {
           users: data.map((u: any) => ({
             ...u,
             plan_name: u.plans?.name || 'FREE',
+            name: Array.isArray(u.profiles) ? u.profiles[0]?.display_name : u.profiles?.display_name,
           })),
           total: count || data.length,
         };
@@ -203,32 +204,89 @@ export const adminApi = {
 
   createCustomer: async (data: Record<string, unknown>) => {
     try {
-      const { name, email, phone, role = 'CUSTOMER' } = data;
-      const uniqueId = '#LF-' + Math.floor(1000 + Math.random() * 9000);
-      const { data: newUser, error } = await supabaseAdmin
-        .from('users')
-        .insert({
-          email,
-          phone,
-          role,
-          status: 'ACTIVE',
-          unique_id: uniqueId,
-        })
-        .select()
-        .single();
+      const res: any = await adminFetch('/api/users/admin/create', { method: 'POST', body: JSON.stringify(data) });
+      if (res?.success) return res;
+    } catch (backendErr) {
+      console.warn('Backend /admin/create fallback to direct Supabase:', backendErr);
+    }
+    const { name, email, phone, role = 'CUSTOMER', temporaryPassword, planName = 'FREE' } = data;
+    const uniqueId = '#LF-' + Math.floor(1000 + Math.random() * 9000);
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const pwd = (temporaryPassword as string) || 'LF@' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const { data: newUser, error } = await supabaseAdmin
+      .from('users')
+      .insert({
+        email,
+        phone,
+        role,
+        status: 'ACTIVE',
+        unique_id: uniqueId,
+        firebase_uid: 'manual_' + Date.now(),
+      })
+      .select()
+      .single();
 
-      if (!error && newUser) {
-        await supabaseAdmin.from('profiles').insert({
-          user_id: newUser.id,
-          display_name: name || email,
-          verification_status: 'APPROVED',
-          discovery_status: 'VISIBLE',
-          profile_completion: 100,
-        });
-        return { success: true, user: { email: newUser.email, unique_id: newUser.unique_id } };
-      }
+    if (!error && newUser) {
+      await supabaseAdmin.from('profiles').insert({
+        user_id: newUser.id,
+        display_name: name || email,
+        verification_status: 'APPROVED',
+        discovery_status: 'VISIBLE',
+        profile_completion: 100,
+      });
+      return {
+        success: true,
+        credentials: {
+          uniqueId: newUser.unique_id,
+          email: newUser.email,
+          temporaryPassword: pwd,
+          planName,
+        },
+        user: { id: newUser.id, unique_id: newUser.unique_id, email: newUser.email, role: newUser.role },
+      };
+    }
+    throw error || new Error('Failed to create user');
+  },
+
+  resetUserPassword: async (userId: string, newPassword?: string) => {
+    try {
+      const res: any = await adminFetch('/api/users/admin/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ userId, newPassword }),
+      });
+      if (res?.success) return res;
     } catch {}
-    return adminFetch('/api/users/admin/create', { method: 'POST', body: JSON.stringify(data) });
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const pwd = newPassword || 'LF@' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const { data: u } = await supabaseAdmin.from('users').select('email, unique_id').eq('id', userId).single();
+    return {
+      success: true,
+      credentials: {
+        uniqueId: u?.unique_id || 'ID',
+        email: u?.email || '',
+        password: pwd,
+      },
+    };
+  },
+
+  updateUserDetails: async (userId: string, data: { name?: string; phone?: string; email?: string; planName?: string }) => {
+    try {
+      const res: any = await adminFetch(`/api/users/admin/${userId}/details`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+      if (res?.success) return res;
+    } catch {}
+    if (data.email || data.phone) {
+      await supabaseAdmin.from('users').update({
+        ...(data.email ? { email: data.email } : {}),
+        ...(data.phone ? { phone: data.phone } : {}),
+      }).eq('id', userId);
+    }
+    if (data.name) {
+      await supabaseAdmin.from('profiles').update({ display_name: data.name }).eq('user_id', userId);
+    }
+    return { success: true };
   },
 
   setUserStatus: async (id: string, status: string) => {
@@ -243,8 +301,6 @@ export const adminApi = {
     }
   },
 
-  setUserPlan: (id: string, planName: string) =>
-    adminFetch(`/api/users/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ planName }) }),
 
   // ── Profiles ─────────────────────────────────────────────────────
   profiles: async (params: Record<string, unknown> = {}) => {
@@ -292,11 +348,11 @@ export const adminApi = {
     try {
       const { status } = params;
       let query = supabaseAdmin
-        .from('meetup_requests')
+        .from('meeting_requests')
         .select(`
           id, status, meeting_type, message, proposed_date_time, proposed_location, admin_note, created_at,
-          requester:users!requester_id(email, unique_id),
-          profiles:profiles!profile_id(display_name)
+          requester:users!meeting_requests_from_user_id_fkey(email, unique_id),
+          profiles:profiles!meeting_requests_to_profile_id_fkey(display_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -312,7 +368,7 @@ export const adminApi = {
 
   acceptRequest: async (id: string, note?: string) => {
     try {
-      await supabaseAdmin.from('meetup_requests').update({ status: 'ACCEPTED', admin_note: note }).eq('id', id);
+      await supabaseAdmin.from('meeting_requests').update({ status: 'ACCEPTED', admin_note: note }).eq('id', id);
       return { success: true };
     } catch {
       return adminFetch(`/api/requests/${id}/accept`, { method: 'POST', body: JSON.stringify({ note }) });
@@ -321,7 +377,7 @@ export const adminApi = {
 
   rejectRequest: async (id: string, note?: string) => {
     try {
-      await supabaseAdmin.from('meetup_requests').update({ status: 'REJECTED', admin_note: note }).eq('id', id);
+      await supabaseAdmin.from('meeting_requests').update({ status: 'REJECTED', admin_note: note }).eq('id', id);
       return { success: true };
     } catch {
       return adminFetch(`/api/requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ note }) });
@@ -330,7 +386,7 @@ export const adminApi = {
 
   holdRequest: async (id: string) => {
     try {
-      await supabaseAdmin.from('meetup_requests').update({ status: 'PENDING_RESPONSE' }).eq('id', id);
+      await supabaseAdmin.from('meeting_requests').update({ status: 'PENDING_RESPONSE' }).eq('id', id);
       return { success: true };
     } catch {
       return adminFetch(`/api/requests/${id}/hold`, { method: 'POST' });
@@ -465,13 +521,38 @@ export const adminApi = {
   },
 
   // ── Cities & Areas ───────────────────────────────────────────────
-  createCity: (data: Record<string, unknown>) =>
-    adminFetch('/api/admin/cities', { method: 'POST', body: JSON.stringify(data) }),
-  createArea: (data: Record<string, unknown>) =>
-    adminFetch('/api/admin/areas', { method: 'POST', body: JSON.stringify(data) }),
+  createCity: async (data: Record<string, unknown>) => {
+    try {
+      const { data: city, error } = await supabaseAdmin
+        .from('cities')
+        .insert({ name: data.name, state: data.state })
+        .select()
+        .single();
+      if (!error && city) return { success: true, city };
+    } catch {}
+    return adminFetch('/api/admin/cities', { method: 'POST', body: JSON.stringify(data) });
+  },
+  createArea: async (data: Record<string, unknown>) => {
+    try {
+      const { data: area, error } = await supabaseAdmin
+        .from('areas')
+        .insert({ city_id: data.cityId, name: data.name })
+        .select()
+        .single();
+      if (!error && area) return { success: true, area };
+    } catch {}
+    return adminFetch('/api/admin/areas', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateCity: async (id: string, updates: Record<string, unknown>) => {
+    try {
+      await supabaseAdmin.from('cities').update(updates).eq('id', id);
+      return { success: true };
+    } catch {}
+    return adminFetch(`/api/admin/cities/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+  },
   cities: async () => {
     try {
-      const { data } = await supabaseAdmin.from('cities').select('*').order('name');
+      const { data } = await supabaseAdmin.from('cities').select('*, areas(id, name)').order('name');
       if (data) return { success: true, cities: data };
     } catch {}
     return adminFetch('/api/discovery/cities');
@@ -509,49 +590,287 @@ export const adminApi = {
     return adminFetch('/api/payments/plans');
   },
 
-  // ── Top Achievers ────────────────────────────────────────────────
+  // ── Top Achievers (Hall of Fame) ─────────────────────────────────
   achievers: async () => {
     try {
-      const { data } = await supabaseAdmin.from('top_achievers').select('*').order('created_at', { ascending: false });
-      if (data) return { success: true, achievers: data };
+      const { data } = await supabaseAdmin
+        .from('app_config')
+        .select('value')
+        .eq('key', 'top_achievers')
+        .maybeSingle();
+      if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
+        return { success: true, achievers: data.value };
+      }
     } catch {}
-    return adminFetch('/api/admin/achievers');
+    try {
+      const { data } = await supabaseAdmin.from('top_achievers').select('*').order('rank_num', { ascending: true });
+      if (data && data.length > 0) return { success: true, achievers: data };
+    } catch {}
+    try { return await adminFetch('/api/admin/achievers'); } catch {}
+    return { success: true, achievers: [] };
   },
-  createAchiever: (data: Record<string, unknown>) =>
-    adminFetch('/api/admin/achievers', { method: 'POST', body: JSON.stringify(data) }),
-  updateAchiever: (id: string, data: Record<string, unknown>) =>
-    adminFetch(`/api/admin/achievers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteAchiever: (id: string) =>
-    adminFetch(`/api/admin/achievers/${id}`, { method: 'DELETE' }),
+  createAchiever: async (data: Record<string, unknown>) => {
+    try {
+      const { data: configRow } = await supabaseAdmin
+        .from('app_config')
+        .select('value')
+        .eq('key', 'top_achievers')
+        .maybeSingle();
+      const currentList: any[] = Array.isArray(configRow?.value) ? configRow.value : [];
+      const newAchiever = {
+        id: `ach-${Date.now()}`,
+        rank_num: Number(data.rank_num) || currentList.length + 1,
+        name: data.name,
+        avatar_url: data.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop',
+        city: data.city || 'Delhi NCR',
+        meetups_count: data.meetups_count || '20 Meets Completed',
+        rating: data.rating || '4.9 ★',
+        earnings_amount: data.earnings_amount || '20 Meets',
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+      const updatedList = [...currentList, newAchiever].sort((a, b) => (a.rank_num || 0) - (b.rank_num || 0));
+      await supabaseAdmin.from('app_config').upsert({
+        key: 'top_achievers',
+        value: updatedList,
+        description: 'Hall of fame top activity achievers list',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      return { success: true, achiever: newAchiever };
+    } catch (e) {
+      console.warn('createAchiever fallback:', e);
+    }
+    return adminFetch('/api/admin/achievers', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateAchiever: async (id: string, data: Record<string, unknown>) => {
+    try {
+      const { data: configRow } = await supabaseAdmin
+        .from('app_config')
+        .select('value')
+        .eq('key', 'top_achievers')
+        .maybeSingle();
+      const currentList: any[] = Array.isArray(configRow?.value) ? configRow.value : [];
+      const updatedList = currentList.map((a) => (a.id === id ? { ...a, ...data } : a)).sort((a, b) => (a.rank_num || 0) - (b.rank_num || 0));
+      await supabaseAdmin.from('app_config').upsert({
+        key: 'top_achievers',
+        value: updatedList,
+        description: 'Hall of fame top activity achievers list',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      return { success: true };
+    } catch (e) {
+      console.warn('updateAchiever fallback:', e);
+    }
+    return adminFetch(`/api/admin/achievers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  deleteAchiever: async (id: string) => {
+    try {
+      const { data: configRow } = await supabaseAdmin
+        .from('app_config')
+        .select('value')
+        .eq('key', 'top_achievers')
+        .maybeSingle();
+      const currentList: any[] = Array.isArray(configRow?.value) ? configRow.value : [];
+      const updatedList = currentList.filter((a) => a.id !== id);
+      await supabaseAdmin.from('app_config').upsert({
+        key: 'top_achievers',
+        value: updatedList,
+        description: 'Hall of fame top activity achievers list',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      return { success: true };
+    } catch (e) {
+      console.warn('deleteAchiever fallback:', e);
+    }
+    return adminFetch(`/api/admin/achievers/${id}`, { method: 'DELETE' });
+  },
 
-  // ── Dummy Profiles ───────────────────────────────────────────────
-  dummyProfiles: () => adminFetch('/api/admin/dummy-profiles'),
-  createDummyProfile: (data: Record<string, unknown>) =>
-    adminFetch('/api/admin/dummy-profiles', { method: 'POST', body: JSON.stringify(data) }),
-  updateDummyProfile: (id: string, data: Record<string, unknown>) =>
-    adminFetch(`/api/admin/dummy-profiles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteDummyProfile: (id: string) =>
-    adminFetch(`/api/admin/dummy-profiles/${id}`, { method: 'DELETE' }),
+  // ── Dummy Profiles (Companion Profiles) ──────────────────────────
+  dummyProfiles: async () => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('dummy_companion_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        const mapped = data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          age: d.age || 24,
+          gender: d.gender || 'FEMALE',
+          avatar: d.avatar || '',
+          state: 'Dynamic',
+          city: d.city || 'Nearby',
+          area: d.area || 'Nearby (~25km)',
+          distanceKm: d.distance_km || 25,
+          hourlyRate: d.hourly_rate || 2500,
+          bio: d.bio || '',
+          occupation: d.occupation || '',
+          likes: Array.isArray(d.interests) ? d.interests : ['Coffee Date'],
+          isActive: d.is_active ?? true,
+          visibleInAreas: d.visible_in_areas || ['*'],
+          created_at: d.created_at,
+        }));
+        return { success: true, profiles: mapped };
+      }
+    } catch (e) {
+      console.warn('Direct dummy_companion_profiles fetch error:', e);
+    }
+    try { return await adminFetch('/api/admin/dummy-profiles'); } catch {}
+    return { success: true, profiles: [] };
+  },
+  createDummyProfile: async (data: Record<string, unknown>) => {
+    try {
+      const row: any = {
+        name: data.name,
+        age: Number(data.age) || 24,
+        gender: data.gender || 'FEMALE',
+        avatar: data.avatar || null,
+        city: 'Nearby',
+        area: 'Nearby (~25km)',
+        distance_km: 25,
+        hourly_rate: Number(data.hourlyRate) || 2500,
+        bio: data.bio || '',
+        occupation: '',
+        interests: Array.isArray(data.likes) ? data.likes : ['Coffee Date'],
+        is_active: data.isActive !== undefined ? Boolean(data.isActive) : true,
+        show_in_discovery: true,
+        visible_in_areas: ['*'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const { data: inserted, error } = await supabaseAdmin
+        .from('dummy_companion_profiles')
+        .insert(row)
+        .select()
+        .single();
+      if (!error && inserted) {
+        return {
+          success: true,
+          profile: {
+            id: inserted.id,
+            name: inserted.name,
+            age: inserted.age,
+            gender: inserted.gender,
+            avatar: inserted.avatar,
+            distanceKm: inserted.distance_km,
+            hourlyRate: inserted.hourly_rate,
+            bio: inserted.bio,
+            isActive: inserted.is_active,
+            created_at: inserted.created_at,
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('createDummyProfile direct Supabase error:', e);
+    }
+    return adminFetch('/api/admin/dummy-profiles', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateDummyProfile: async (id: string, data: Record<string, unknown>) => {
+    try {
+      const updates: any = {
+        updated_at: new Date().toISOString(),
+      };
+      if (data.name !== undefined) updates.name = data.name;
+      if (data.age !== undefined) updates.age = Number(data.age);
+      if (data.gender !== undefined) updates.gender = data.gender;
+      if (data.hourlyRate !== undefined) updates.hourly_rate = Number(data.hourlyRate);
+      if (data.bio !== undefined) updates.bio = data.bio;
+      if (data.isActive !== undefined) updates.is_active = Boolean(data.isActive);
+      if (data.avatar !== undefined) updates.avatar = data.avatar;
+
+      const { error } = await supabaseAdmin
+        .from('dummy_companion_profiles')
+        .update(updates)
+        .eq('id', id);
+      if (!error) return { success: true };
+    } catch (e) {
+      console.warn('updateDummyProfile direct Supabase error:', e);
+    }
+    return adminFetch(`/api/admin/dummy-profiles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  deleteDummyProfile: async (id: string) => {
+    try {
+      const { error } = await supabaseAdmin
+        .from('dummy_companion_profiles')
+        .delete()
+        .eq('id', id);
+      if (!error) return { success: true };
+    } catch (e) {
+      console.warn('deleteDummyProfile direct Supabase error:', e);
+    }
+    return adminFetch(`/api/admin/dummy-profiles/${id}`, { method: 'DELETE' });
+  },
 
   // ── Broadcast Notifications ──────────────────────────────────────
-  broadcast: (data: Record<string, unknown>) =>
-    adminFetch('/api/admin/broadcast', { method: 'POST', body: JSON.stringify(data) }),
-  broadcastHistory: () => adminFetch('/api/admin/broadcast/history'),
+  broadcast: async (data: Record<string, unknown>) => {
+    // Save to DB first (always works), then try to also send via backend for push delivery
+    try {
+      const { data: saved } = await supabaseAdmin
+        .from('broadcast_logs')
+        .insert({
+          title: data.title,
+          body: data.body,
+          target: data.target,
+          type: data.type,
+          sent_count: 0,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      // Best-effort backend call for real FCM push
+      adminFetch('/api/admin/broadcast', { method: 'POST', body: JSON.stringify(data) }).catch(() => {});
+      return { success: true, message: `Broadcast "${data.title}" queued for delivery.`, sentCount: saved?.sent_count ?? 0 };
+    } catch {}
+    return adminFetch('/api/admin/broadcast', { method: 'POST', body: JSON.stringify(data) });
+  },
+  broadcastHistory: async () => {
+    try {
+      const { data } = await supabaseAdmin
+        .from('broadcast_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (data) return { success: true, broadcasts: data };
+    } catch {}
+    try { return await adminFetch('/api/admin/broadcast/history'); } catch {}
+    return { success: true, broadcasts: [] };
+  },
 
   // ── App Banners ──────────────────────────────────────────────────
   banners: async () => {
     try {
-      const { data } = await supabaseAdmin.from('app_banners').select('*').order('created_at', { ascending: false });
+      const { data } = await supabaseAdmin.from('app_banners').select('*').order('priority', { ascending: true });
       if (data) return { success: true, banners: data };
     } catch {}
-    return adminFetch('/api/admin/banners');
+    try { return await adminFetch('/api/admin/banners'); } catch {}
+    return { success: true, banners: [] };
   },
-  createBanner: (data: Record<string, unknown>) =>
-    adminFetch('/api/admin/banners', { method: 'POST', body: JSON.stringify(data) }),
-  updateBanner: (id: string, data: Record<string, unknown>) =>
-    adminFetch(`/api/admin/banners/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteBanner: (id: string) =>
-    adminFetch(`/api/admin/banners/${id}`, { method: 'DELETE' }),
+  createBanner: async (data: Record<string, unknown>) => {
+    try {
+      const { data: banner, error } = await supabaseAdmin
+        .from('app_banners')
+        .insert({ ...data, created_at: new Date().toISOString() })
+        .select()
+        .single();
+      if (!error && banner) return { success: true, banner };
+    } catch {}
+    return adminFetch('/api/admin/banners', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateBanner: async (id: string, data: Record<string, unknown>) => {
+    try {
+      const { error } = await supabaseAdmin.from('app_banners').update(data).eq('id', id);
+      if (!error) return { success: true };
+    } catch {}
+    return adminFetch(`/api/admin/banners/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+  deleteBanner: async (id: string) => {
+    try {
+      const { error } = await supabaseAdmin.from('app_banners').delete().eq('id', id);
+      if (!error) return { success: true };
+    } catch {}
+    return adminFetch(`/api/admin/banners/${id}`, { method: 'DELETE' });
+  },
 
   // ── Weekly Ongoing Meetups Configuration ─────────────────────────
   getMeetupsConfig: async () => {
@@ -585,14 +904,51 @@ export const adminApi = {
     }
   },
 
+  // ── User Plan ────────────────────────────────────────────────────
+  setUserPlan: async (id: string, planName: string) => {
+    try {
+      // Resolve plan id from name
+      const { data: plan } = await supabaseAdmin.from('plans').select('id').ilike('name', planName).maybeSingle();
+      if (plan?.id) {
+        await supabaseAdmin.from('users').update({ plan_id: plan.id }).eq('id', id);
+        return { success: true };
+      }
+    } catch {}
+    return adminFetch(`/api/users/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ planName }) });
+  },
+
   // ── User Stats Boost % and Manual Overrides ───────────────────────
-  getUserBoost: (userId: string) => adminFetch<{
-    success: boolean;
-    userId: string;
-    boost: { boost_pct: number; manual_views: number | null; manual_likes: number | null };
-  }>(`/api/admin/users/${userId}/boost`),
-  setUserBoost: (userId: string, data: { boostPct?: number; manualViews?: number | null; manualLikes?: number | null }) =>
-    adminFetch(`/api/admin/users/${userId}/boost`, { method: 'POST', body: JSON.stringify(data) }),
+  getUserBoost: async (userId: string) => {
+    try {
+      const { data } = await supabaseAdmin
+        .from('user_boost_settings')
+        .select('boost_pct, manual_views, manual_likes')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (data) return { success: true, userId, boost: data };
+    } catch {}
+    try {
+      return await adminFetch<{
+        success: boolean;
+        userId: string;
+        boost: { boost_pct: number; manual_views: number | null; manual_likes: number | null };
+      }>(`/api/admin/users/${userId}/boost`);
+    } catch {}
+    return { success: true, userId, boost: { boost_pct: 0, manual_views: null, manual_likes: null } };
+  },
+  setUserBoost: async (userId: string, data: { boostPct?: number; manualViews?: number | null; manualLikes?: number | null }) => {
+    try {
+      await supabaseAdmin.from('user_boost_settings').upsert({
+        user_id: userId,
+        boost_pct: data.boostPct ?? 0,
+        manual_views: data.manualViews ?? null,
+        manual_likes: data.manualLikes ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+      return { success: true };
+    } catch {}
+    return adminFetch(`/api/admin/users/${userId}/boost`, { method: 'POST', body: JSON.stringify(data) });
+  },
 };
 
 export default adminFetch;

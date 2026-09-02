@@ -184,16 +184,9 @@ export default function ProfilesPage() {
       name: '',
       age: 24,
       gender: 'FEMALE',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80&auto=format&fit=crop',
-      state: 'Delhi NCR',
-      city: 'Delhi',
-      area: 'Connaught Place',
-      distanceKm: 25,
       hourlyRate: 2500,
-      bio: 'Loves coffee, traveling, and good conversations.',
-      occupation: 'Product Designer',
+      bio: 'Loves coffee, cafe hangouts, and good conversations.',
       isActive: true,
-      visibleInAreas: ['Connaught Place', 'Hauz Khas'],
     });
     setShowDummyModal(true);
   };
@@ -269,10 +262,8 @@ export default function ProfilesPage() {
               <thead>
                 <tr>
                   <th>Companion</th>
-                  <th>State, City & Area</th>
-                  <th>Nearby Radius (km)</th>
+                  <th>Dynamic Location (Auto ~25 km)</th>
                   <th>Hourly Rate (₹)</th>
-                  <th>Occupation</th>
                   <th>Visibility</th>
                   <th>Actions</th>
                 </tr>
@@ -280,7 +271,7 @@ export default function ProfilesPage() {
               <tbody>
                 {dummyProfiles.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 30, color: 'var(--text-3)' }}>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: 30, color: 'var(--text-3)' }}>
                       No dummy companion profiles designed yet. Click <strong>"+ Design Dummy Profile"</strong> above.
                     </td>
                   </tr>
@@ -289,11 +280,13 @@ export default function ProfilesPage() {
                     <tr key={dp.id}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <img
-                            src={dp.avatar}
-                            alt=""
-                            style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-                          />
+                          <div style={{
+                            width: 38, height: 38, borderRadius: '50%', background: '#FCE7F3',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '1.2rem', border: '2px solid #EC4899', flexShrink: 0
+                          }}>
+                            👤
+                          </div>
                           <div>
                             <div style={{ fontWeight: 700 }}>{dp.name}, {dp.age}</div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{dp.gender}</div>
@@ -301,22 +294,18 @@ export default function ProfilesPage() {
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: '#8B5CF6', fontSize: '0.8rem' }}>{dp.state || 'Delhi NCR'}</div>
-                        <div style={{ fontWeight: 600 }}>{dp.city}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>📍 {dp.area}</div>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                          📍 {dp.distanceKm} km away
-                        </span>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>(20-50 km range)</div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#EFF6FF', color: '#1D4ED8', padding: '3px 9px', borderRadius: 99, fontSize: '0.78rem', fontWeight: 700, border: '1px solid #BFDBFE' }}>
+                          📍 Customer Nearby (~25 km)
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 2 }}>
+                          🌐 Auto-matches viewer (Delhi, Mumbai, etc.)
+                        </div>
                       </td>
                       <td>
                         <strong style={{ color: '#16A34A', fontSize: '0.95rem' }}>
                           ₹{dp.hourlyRate.toLocaleString('en-IN')} / hr
                         </strong>
                       </td>
-                      <td style={{ fontSize: '0.85rem' }}>{dp.occupation}</td>
                       <td>
                         <button
                           className={`btn btn-xs ${dp.isActive ? 'btn-success' : 'btn-ghost'}`}
@@ -438,7 +427,18 @@ export default function ProfilesPage() {
               {editingDummy ? '✏️ Edit Dummy Companion Profile' : '✨ Design New Dummy Profile'}
             </div>
 
-            <form onSubmit={handleSaveDummyProfile} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
+            <div style={{
+              background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8,
+              padding: '10px 14px', fontSize: '0.8rem', color: '#1E40AF', marginTop: 10,
+              display: 'flex', alignItems: 'center', gap: 8
+            }}>
+              <span style={{ fontSize: '1.1rem' }}>📍</span>
+              <div>
+                <strong>Dynamic Location Active:</strong> Location ya city target karne ki jarurat nahi hai. Yeh profile har customer ko unke <strong>25 km nearby</strong> show hogi (Delhi customer ko Delhi me, Mumbai wale ko Mumbai me).
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveDummyProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
                 <div>
                   <label className="form-label">Full Name</label>
@@ -478,77 +478,6 @@ export default function ProfilesPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Nearby Distance (20 - 50 km)</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    placeholder="25"
-                    value={dummyForm.distanceKm || 25}
-                    onChange={(e) => setDummyForm({ ...dummyForm, distanceKm: Number(e.target.value) })}
-                    required
-                    min="20"
-                    max="50"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                <div>
-                  <label className="form-label">Target State (28 States & UTs)</label>
-                  <select
-                    className="form-input"
-                    value={dummyForm.state || 'Delhi NCR'}
-                    onChange={(e) => setDummyForm({ ...dummyForm, state: e.target.value })}
-                  >
-                    {ALL_INDIAN_STATES.map((st) => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">City Name</label>
-                  <input
-                    className="form-input"
-                    placeholder="e.g. Delhi / Mumbai"
-                    value={dummyForm.city || ''}
-                    onChange={(e) => setDummyForm({ ...dummyForm, city: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Area / Location</label>
-                  <input
-                    className="form-input"
-                    placeholder="e.g. Connaught Place"
-                    value={dummyForm.area || ''}
-                    onChange={(e) => setDummyForm({ ...dummyForm, area: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label">Avatar / Photo URL</label>
-                <input
-                  className="form-input"
-                  placeholder="https://images.unsplash.com/..."
-                  value={dummyForm.avatar || ''}
-                  onChange={(e) => setDummyForm({ ...dummyForm, avatar: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label className="form-label">Occupation</label>
-                  <input
-                    className="form-input"
-                    placeholder="e.g. UI/UX Designer"
-                    value={dummyForm.occupation || ''}
-                    onChange={(e) => setDummyForm({ ...dummyForm, occupation: e.target.value })}
-                  />
-                </div>
-                <div>
                   <label className="form-label">Status</label>
                   <select
                     className="form-input"
@@ -565,9 +494,9 @@ export default function ProfilesPage() {
                 <label className="form-label">Bio & Interests</label>
                 <textarea
                   className="form-input"
-                  rows={2}
+                  rows={3}
                   style={{ resize: 'none' }}
-                  placeholder="Bio description..."
+                  placeholder="e.g. Coffee walks, art galleries, fine dining & exploring cafes..."
                   value={dummyForm.bio || ''}
                   onChange={(e) => setDummyForm({ ...dummyForm, bio: e.target.value })}
                 />

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { dummyProfilesApi, requestsApi } from '../lib/api';
+import { dummyProfilesApi, requestsApi, profilesApi } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 
@@ -23,7 +25,7 @@ type BidItem = {
   targetName: string;
   amount: number;
   pitch: string;
-  status: 'SUBMITTED' | 'ACCEPTED' | 'REJECTED';
+  status: 'SUBMITTED' | 'PENDING' | 'PENDING_RESPONSE' | 'ACCEPTED' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | string;
   createdAt: string;
 };
 
@@ -80,35 +82,83 @@ const DEFAULT_DISCOVER_PROFILES: RequestItem[] = [
   },
 ];
 
+function getChatIdForCompanion(name: string, id?: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('priya')) return 'c-priya';
+  if (lower.includes('meera')) return 'c-meera';
+  if (lower.includes('ananya')) return 'c-ananya';
+  if (lower.includes('riya')) return 'c-riya';
+  return id || `c-${lower.replace(/[^a-z0-9]/g, '-')}`;
+}
+
 export default function RequestsPage() {
+  const navigate = useNavigate();
+  const { user, userId } = useAuth();
+  const currentUid = userId || user?.uid;
+
+  // Clear any old fake demo proposals from localStorage
+  try {
+    const legacy = localStorage.getItem('lf_user_bids');
+    if (legacy) {
+      localStorage.removeItem('lf_user_bids');
+    }
+  } catch {}
+
   const [bidModalTarget, setBidModalTarget] = useState<RequestItem | null>(null);
   const [selectedDetailsTarget, setSelectedDetailsTarget] = useState<RequestItem | null>(null);
   const [bidAmount, setBidAmount] = useState('2500');
   const [bidPitch, setBidPitch] = useState('');
-  const [userBids, setUserBids] = useState<BidItem[]>([
-    {
-      id: 'b1',
-      requestId: 'req-1',
-      targetName: 'Priya Sharma',
-      amount: 2500,
-      pitch: 'I would love to accompany you for coffee in Connaught Place tomorrow evening!',
-      status: 'ACCEPTED',
-      createdAt: new Date().toISOString(),
+  const [userBids, setUserBids] = useState<BidItem[]>(() => {
+    const key = currentUid ? `lf_user_bids_${currentUid}` : 'lf_user_bids_guest';
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
     }
-  ]);
-  const [selectedStateFilter] = useState<string>('ALL');
+    return []; // No default fake proposal!
+  });
+
+  useEffect(() => {
+    const key = currentUid ? `lf_user_bids_${currentUid}` : 'lf_user_bids_guest';
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        setUserBids(JSON.parse(saved));
+        return;
+      } catch {}
+    }
+    setUserBids([]);
+  }, [currentUid]);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Fetch logged in customer's profile to dynamically adapt companion locations
+  const { data: profileData } = useQuery({
+    queryKey: ['customer-profile-for-location'],
+    queryFn: () => profilesApi.me().catch(() => null),
+    staleTime: 60_000,
+  });
+
+  const detectedCity = (() => {
+    const p = (profileData as any)?.profile;
+    if (p?.cities?.name) return p.cities.name;
+    if (typeof p?.city === 'string' && p.city.trim()) {
+      return p.city.split(',')[0].trim();
+    }
+    const saved = localStorage.getItem('lf_customer_city');
+    if (saved) return saved;
+    return 'Delhi';
+  })();
+
   const { data: dummyData } = useQuery({
-    queryKey: ['live-dummy-profiles', selectedStateFilter],
-    queryFn: () => dummyProfilesApi.getProfiles(selectedStateFilter) as Promise<{ profiles: any[] }>,
+    queryKey: ['live-dummy-profiles'],
+    queryFn: () => dummyProfilesApi.getProfiles() as Promise<{ profiles: any[] }>,
     refetchInterval: 10_000,
   });
 
   const { data: serverRequestsData } = useQuery({
     queryKey: ['my-server-requests'],
     queryFn: () => requestsApi.myRequests().catch(() => null) as Promise<{ requests: any[] } | null>,
-    refetchInterval: 10_000,
+    refetchInterval: 5_000,
   });
 
   const serverBids: BidItem[] = (serverRequestsData?.requests || []).map((r: any) => ({
@@ -121,7 +171,24 @@ export default function RequestsPage() {
     createdAt: r.created_at,
   }));
 
-  const allBids = [...userBids, ...serverBids.filter((sb) => !userBids.some((ub) => ub.id === sb.id))];
+  // Merge server and local bids, giving precedence to server status updates
+  const allBids: BidItem[] = (() => {
+    const combined: BidItem[] = [...userBids];
+    serverBids.forEach((sb) => {
+      const idx = combined.findIndex(
+        (ub) =>
+          ub.id === sb.id ||
+          ub.requestId === sb.requestId ||
+          (ub.targetName && sb.targetName && ub.targetName.toLowerCase() === sb.targetName.toLowerCase())
+      );
+      if (idx >= 0) {
+        combined[idx] = { ...combined[idx], status: sb.status };
+      } else {
+        combined.push(sb);
+      }
+    });
+    return combined;
+  })();
 
   const liveDummyProfiles = (dummyData as { profiles: any[] })?.profiles;
   const requests: RequestItem[] = liveDummyProfiles && liveDummyProfiles.length > 0
@@ -129,15 +196,18 @@ export default function RequestsPage() {
         id: p.id,
         name: p.name,
         age: p.age ?? 24,
-        area: `${p.area}, ${p.city} (${p.state})`,
-        hourlyRate: p.hourlyRate,
-        photo: DEFAULT_DUMMY_AVATAR,
-        meetingType: p.meetingType ?? `${p.area} Meetup ☕`,
-        status: p.isActive ? 'ACTIVE' : 'HIDDEN',
+        area: `${detectedCity} (Nearby ~25 km)`,
+        hourlyRate: p.hourlyRate ?? p.hourly_rate ?? 2500,
+        photo: p.avatar && p.avatar.startsWith('http') ? p.avatar : DEFAULT_DUMMY_AVATAR,
+        meetingType: p.meetingType ?? 'Companion Meetup ☕',
+        status: (p.isActive !== undefined ? p.isActive : (p.is_active !== undefined ? p.is_active : true)) ? 'ACTIVE' : 'HIDDEN',
         message: p.bio || 'Available for companion meetups.',
         createdAt: p.created_at ?? new Date().toISOString(),
       }))
-    : DEFAULT_DISCOVER_PROFILES;
+    : DEFAULT_DISCOVER_PROFILES.map((p) => ({
+        ...p,
+        area: `${detectedCity} (Nearby ~25 km)`,
+      }));
 
   const handleBidSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +227,12 @@ export default function RequestsPage() {
       createdAt: new Date().toISOString(),
     };
 
-    setUserBids((prev) => [newBid, ...prev]);
+    setUserBids((prev) => {
+      const updated = [newBid, ...prev];
+      const key = currentUid ? `lf_user_bids_${currentUid}` : 'lf_user_bids_guest';
+      try { localStorage.setItem(key, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
     setBidModalTarget(null);
     setBidPitch('');
 
@@ -189,16 +264,16 @@ export default function RequestsPage() {
               <span>✨</span> Discover Companion Profiles
             </h2>
             <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 1, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Explore verified companions, state availability & service rates.
+              Showing companions within <strong>25 km nearby</strong> in {detectedCity}
             </div>
           </div>
           <span style={{
-            fontSize: '0.68rem', fontWeight: 800, whiteSpace: 'nowrap', flexShrink: 0,
-            background: '#DCFCE7', color: '#15803D',
-            padding: '3px 9px', borderRadius: 99, border: '1px solid #86EFAC',
-            boxShadow: '0 1px 4px rgba(22,163,74,0.12)', display: 'inline-flex', alignItems: 'center', gap: 3
+            fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap', flexShrink: 0,
+            background: '#EFF6FF', color: '#1D4ED8',
+            padding: '4px 10px', borderRadius: 99, border: '1px solid #BFDBFE',
+            display: 'inline-flex', alignItems: 'center', gap: 4
           }}>
-            ✓ {requests.length} Verified
+            📍 {detectedCity} (~25 km)
           </span>
         </div>
 
@@ -214,155 +289,273 @@ export default function RequestsPage() {
 
         {/* Premium Companion Profiles List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {requests.map((req: RequestItem) => (
-            <div
-              key={req.id}
-              style={{
-                padding: '14px 16px', borderRadius: '14px',
-                background: '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              onClick={() => setSelectedDetailsTarget(req)}
-            >
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                {/* Companion Profile Avatar with Verified Badge */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <img
-                    src={req.photo}
-                    alt={req.name}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = DEFAULT_DUMMY_AVATAR;
-                    }}
-                    style={{
-                      width: 60, height: 60, borderRadius: '50%',
-                      objectFit: 'cover', border: '2.5px solid #EC4899',
-                      boxShadow: '0 4px 12px rgba(236,72,153,0.25)',
-                      background: '#FCE7F3'
-                    }}
-                  />
-                  <span style={{
-                    position: 'absolute', bottom: -2, right: -2, fontSize: '0.65rem',
-                    background: '#16A34A', color: 'white', borderRadius: '50%',
-                    padding: '2px 5px', border: '1.5px solid white', fontWeight: 900
-                  }}>✓</span>
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Name & Age & Service Rate */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-                    <h3 style={{ margin: 0, fontWeight: 900, fontSize: '1rem', color: 'var(--color-text)' }}>
-                      {req.name}, {req.age}
-                    </h3>
-
-                    {/* Hourly Service Rate Pill */}
+            {requests.map((req: RequestItem) => (
+              <div
+                key={req.id}
+                style={{
+                  padding: '14px 16px', borderRadius: '14px',
+                  background: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onClick={() => setSelectedDetailsTarget(req)}
+              >
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  {/* Companion Profile Avatar with Verified Badge */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <img
+                      src={req.photo}
+                      alt={req.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_DUMMY_AVATAR;
+                      }}
+                      style={{
+                        width: 60, height: 60, borderRadius: '50%',
+                        objectFit: 'cover', border: '2.5px solid #EC4899',
+                        boxShadow: '0 4px 12px rgba(236,72,153,0.25)',
+                        background: '#FCE7F3'
+                      }}
+                    />
                     <span style={{
-                      fontSize: '0.78rem', fontWeight: 900, color: '#15803D',
-                      background: 'linear-gradient(135deg, #DCFCE7, #BBF7D0)',
-                      padding: '3px 10px', borderRadius: 99, border: '1px solid #86EFAC',
-                      flexShrink: 0, boxShadow: '0 1px 4px rgba(22,163,74,0.15)'
+                      position: 'absolute', bottom: -2, right: -2, fontSize: '0.65rem',
+                      background: '#16A34A', color: 'white', borderRadius: '50%',
+                      padding: '2px 5px', border: '1.5px solid white', fontWeight: 900
+                    }}>✓</span>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Name & Age & Service Rate */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                      <h3 style={{ margin: 0, fontWeight: 900, fontSize: '1rem', color: 'var(--color-text)' }}>
+                        {req.name}, {req.age}
+                      </h3>
+
+                      {/* Hourly Service Rate Pill */}
+                      <span style={{
+                        fontSize: '0.78rem', fontWeight: 900, color: '#15803D',
+                        background: 'linear-gradient(135deg, #DCFCE7, #BBF7D0)',
+                        padding: '3px 10px', borderRadius: 99, border: '1px solid #86EFAC',
+                        flexShrink: 0, boxShadow: '0 1px 4px rgba(22,163,74,0.15)'
+                      }}>
+                        ⚡ ₹{req.hourlyRate.toLocaleString('en-IN')}/hr
+                      </span>
+                    </div>
+
+                    {/* Location */}
+                    <div style={{ fontSize: '0.76rem', color: 'var(--color-text-2)', marginTop: 3, fontWeight: 600 }}>
+                      📍 {req.area}
+                    </div>
+
+                    {/* About / Bio Badge */}
+                    <div style={{
+                      marginTop: 6, padding: '5px 10px', borderRadius: 8,
+                      background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.18)',
+                      fontSize: '0.76rem', color: '#BE185D', lineHeight: 1.35
                     }}>
-                      ⚡ ₹{req.hourlyRate.toLocaleString('en-IN')}/hr
-                    </span>
-                  </div>
+                      📝 <strong>About / Bio:</strong> {req.message || req.meetingType}
+                    </div>
 
-                  {/* Location */}
-                  <div style={{ fontSize: '0.76rem', color: 'var(--color-text-2)', marginTop: 3, fontWeight: 600 }}>
-                    📍 {req.area}
-                  </div>
+                    {/* Proposal & Direct Request Action Buttons */}
+                    {(() => {
+                      const existingBid = allBids.find(
+                        (b) => b.requestId === req.id || b.targetName.toLowerCase() === req.name.toLowerCase()
+                      );
+                      const isAccepted = existingBid?.status === 'ACCEPTED' || existingBid?.status === 'CONFIRMED';
+                      const isPending = existingBid?.status === 'SUBMITTED' || existingBid?.status === 'PENDING' || existingBid?.status === 'PENDING_RESPONSE';
+                      const isRejected = existingBid?.status === 'REJECTED' || existingBid?.status === 'CANCELLED';
 
-                  {/* About / Bio Badge */}
-                  <div style={{
-                    marginTop: 6, padding: '5px 10px', borderRadius: 8,
-                    background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.18)',
-                    fontSize: '0.76rem', color: '#BE185D', lineHeight: 1.35
-                  }}>
-                    📝 <strong>About / Bio:</strong> {req.message || req.meetingType}
-                  </div>
+                      return (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          {isAccepted ? (
+                            <div style={{ display: 'flex', gap: 6, flex: 1, alignItems: 'center' }}>
+                              <span style={{
+                                borderRadius: 99, padding: '6px 12px', fontSize: '0.74rem', fontWeight: 800,
+                                background: '#DCFCE7', color: '#15803D', border: '1.5px solid #86EFAC',
+                                display: 'inline-flex', alignItems: 'center', gap: 4
+                              }}>
+                                ✅ Accepted
+                              </span>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-xs"
+                                style={{
+                                  borderRadius: 99, padding: '7px 14px', fontSize: '0.76rem', fontWeight: 800,
+                                  background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none',
+                                  display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+                                  flex: 1, boxShadow: '0 2px 8px rgba(16,185,129,0.3)', color: '#fff'
+                                }}
+                                onClick={() => {
+                                  const cid = getChatIdForCompanion(req.name, req.id);
+                                  navigate(`/chat/${cid}`);
+                                }}
+                              >
+                                💬 Chat Now
+                              </button>
+                            </div>
+                          ) : isPending ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+                              <div style={{
+                                borderRadius: 99, padding: '6px 12px', fontSize: '0.74rem', fontWeight: 800,
+                                background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FCD34D',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
+                              }}>
+                                ⏳ Proposal Sent (Awaiting Acceptance)
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#B45309', textAlign: 'center', fontWeight: 600 }}>
+                                🔒 Chat unlocks once {req.name} accepts
+                              </div>
+                            </div>
+                          ) : isRejected ? (
+                            <div style={{ display: 'flex', gap: 6, flex: 1, alignItems: 'center' }}>
+                              <span style={{
+                                borderRadius: 99, padding: '6px 10px', fontSize: '0.72rem', fontWeight: 800,
+                                background: '#FEE2E2', color: '#991B1B', border: '1.5px solid #FCA5A5',
+                                display: 'inline-flex', alignItems: 'center', gap: 3
+                              }}>
+                                ❌ Not Accepted
+                              </span>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                style={{ borderRadius: 99, padding: '5px 12px', fontSize: '0.74rem', fontWeight: 700 }}
+                                onClick={() => setBidModalTarget(req)}
+                              >
+                                🔄 Resend
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-xs"
+                              style={{
+                                borderRadius: 99, padding: '6px 14px', fontSize: '0.76rem', flex: 1, fontWeight: 800,
+                                background: 'linear-gradient(135deg, var(--color-primary), #E11D48)', border: 'none',
+                                boxShadow: '0 2px 8px rgba(225,29,72,0.3)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
+                              }}
+                              onClick={() => setBidModalTarget(req)}
+                            >
+                              🎯 Send Proposal
+                            </button>
+                          )}
 
-                  {/* Proposal & Direct Request Action Buttons */}
-                  {(() => {
-                    const existingBid = allBids.find((b) => b.requestId === req.id || b.targetName.toLowerCase() === req.name.toLowerCase());
-                    return (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
-                        {existingBid ? (
-                          <span style={{
-                            borderRadius: 99, padding: '6px 14px', fontSize: '0.76rem', flex: 1, fontWeight: 800,
-                            background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
-                          }}>
-                            ✓ Proposal Sent (₹{existingBid.amount.toLocaleString('en-IN')}/hr)
-                          </span>
-                        ) : (
                           <button
-                            className="btn btn-primary btn-xs"
+                            type="button"
+                            className="btn btn-ghost btn-xs"
                             style={{
-                              borderRadius: 99, padding: '6px 14px', fontSize: '0.76rem', flex: 1, fontWeight: 800,
-                              background: 'linear-gradient(135deg, var(--color-primary), #E11D48)', border: 'none',
-                              boxShadow: '0 2px 8px rgba(225,29,72,0.3)', cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
+                              borderRadius: 99, padding: '6px 10px', fontSize: '0.74rem', fontWeight: 700,
+                              color: 'var(--color-text-2)', cursor: 'pointer'
                             }}
-                            onClick={() => setBidModalTarget(req)}
+                            onClick={() => setSelectedDetailsTarget(req)}
                           >
-                            🎯 Proposal
+                            👁️ Details
                           </button>
-                        )}
-
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          style={{
-                            borderRadius: 99, padding: '6px 10px', fontSize: '0.74rem', fontWeight: 700,
-                            color: 'var(--color-text-2)', cursor: 'pointer'
-                          }}
-                          onClick={() => setSelectedDetailsTarget(req)}
-                        >
-                          👁️ Details
-                        </button>
-                      </div>
-                    );
-                  })()}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Submitted Proposals & Requests Persisted Section */}
+        {/* Submitted Proposals Section */}
         {allBids.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              🎯 My Submitted Proposals ({allBids.length})
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {allBids.map((bid) => (
-                <div key={bid.id} style={{
-                  background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12,
-                  padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.86rem', color: '#0F172A' }}>
-                      {bid.targetName}
-                    </div>
-                    <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: 2 }}>
-                      {bid.pitch}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{
-                      fontSize: '0.68rem', fontWeight: 800, background: '#DCFCE7', color: '#15803D',
-                      padding: '2px 8px', borderRadius: 99, border: '1px solid #86EFAC'
-                    }}>
-                      {bid.status}
-                    </span>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#BE185D', marginTop: 4 }}>
-                      ₹{bid.amount.toLocaleString('en-IN')}/hr
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <div style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3 style={{ fontSize: '1.02rem', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🎯</span> My Submitted Proposals ({allBids.length})
+              </h3>
             </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {allBids.map((bid) => {
+                  const isAccepted = bid.status === 'ACCEPTED' || bid.status === 'CONFIRMED';
+                  const isPending = bid.status === 'SUBMITTED' || bid.status === 'PENDING' || bid.status === 'PENDING_RESPONSE';
+                  const isRejected = bid.status === 'REJECTED' || bid.status === 'CANCELLED';
+
+                  return (
+                    <div
+                      key={bid.id}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1.5px solid ' + (isAccepted ? '#86EFAC' : isPending ? '#FDE68A' : '#E2E8F0'),
+                        borderRadius: 14,
+                        padding: '14px 16px',
+                        boxShadow: isAccepted ? '0 4px 16px rgba(22,163,74,0.1)' : '0 1px 4px rgba(0,0,0,0.03)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 900, fontSize: '0.94rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>👤</span> {bid.targetName}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 3, lineHeight: 1.4 }}>
+                            {bid.pitch || 'Companion meetup request'}
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: '0.72rem', fontWeight: 800,
+                            background: isAccepted ? '#DCFCE7' : isPending ? '#FEF3C7' : '#FEE2E2',
+                            color: isAccepted ? '#15803D' : isPending ? '#92400E' : '#991B1B',
+                            padding: '4px 10px', borderRadius: 99,
+                            border: '1px solid ' + (isAccepted ? '#86EFAC' : isPending ? '#FCD34D' : '#FCA5A5'),
+                            display: 'inline-flex', alignItems: 'center', gap: 4
+                          }}>
+                            {isAccepted ? '✅ ACCEPTED' : isPending ? '⏳ PENDING REVIEW' : '❌ NOT ACCEPTED'}
+                          </span>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#BE185D', marginTop: 4 }}>
+                            ₹{bid.amount.toLocaleString('en-IN')}/hr
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Info / Action Row */}
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        paddingTop: 8, borderTop: '1px solid #F1F5F9', flexWrap: 'wrap', gap: 8
+                      }}>
+                        <div style={{ fontSize: '0.72rem', color: isAccepted ? '#15803D' : isPending ? '#B45309' : isRejected ? '#991B1B' : '#64748B', fontWeight: 600 }}>
+                          {isAccepted
+                            ? '🎉 Proposal accepted! You can now send messages.'
+                            : isPending
+                            ? '🔒 Chat locked — Waiting for companion to accept.'
+                            : isRejected
+                            ? 'Companion declined this proposal.'
+                            : 'Waiting for response.'}
+                        </div>
+
+                        {isAccepted && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-xs"
+                            style={{
+                              borderRadius: 99, padding: '6px 14px', fontSize: '0.75rem', fontWeight: 800,
+                              background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none',
+                              display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+                              color: '#fff', boxShadow: '0 2px 8px rgba(16,185,129,0.3)'
+                            }}
+                            onClick={() => {
+                              const cid = getChatIdForCompanion(bid.targetName, bid.requestId);
+                              navigate(`/chat/${cid}`);
+                            }}
+                          >
+                            💬 Chat Now
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
           </div>
         )}
 

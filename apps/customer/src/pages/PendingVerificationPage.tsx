@@ -43,13 +43,22 @@ export default function PendingVerificationPage() {
   };
 
   const isSuperAdmin = user?.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com';
-  const isApproved = isSuperAdmin || (userStatus === 'ACTIVE' && verificationStatus === 'APPROVED');
+  const isApproved = isSuperAdmin || userStatus === 'ACTIVE' || verificationStatus === 'APPROVED';
 
   useEffect(() => {
     if (isApproved) {
       navigate('/discover', { replace: true });
     }
   }, [isApproved, navigate]);
+
+  // Periodic poll to detect when Admin activates the user in real-time
+  useEffect(() => {
+    refreshUser();
+    const timer = setInterval(() => {
+      refreshUser();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [refreshUser]);
 
   // Load saved payment step if user previously submitted UTR
   useEffect(() => {
@@ -150,6 +159,28 @@ export default function PendingVerificationPage() {
         </div>
         <div className="pending-brand-title">LittleFun VIP Access</div>
         <p className="pending-tagline">100% Genuine Partner Meeting Verification</p>
+        <div style={{ display: 'flex', gap: 10, marginTop: 10, justifyContent: 'center' }}>
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            style={{
+              padding: '6px 16px',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              background: 'rgba(255, 255, 255, 0.12)',
+              color: '#fff',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            👤 View &amp; Edit My Profile
+          </button>
+        </div>
       </div>
 
       <div className="pending-card-container">
@@ -191,7 +222,7 @@ export default function PendingVerificationPage() {
             <div className="client-info-box">
               <div className="info-row">
                 <span className="info-lbl">Client ID:</span>
-                <span className="info-val highlight">{uniqueId || '#LF-PENDING'}</span>
+                <span className="info-val highlight">{uniqueId || (user?.uid ? `#LF-${user.uid.slice(-6).toUpperCase()}` : '#LF-PENDING')}</span>
               </div>
               <div className="info-row">
                 <span className="info-lbl">Account Email:</span>

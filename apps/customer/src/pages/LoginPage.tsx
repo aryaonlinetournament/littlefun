@@ -19,10 +19,10 @@ export default function LoginPage() {
 
     try {
       const result = await signIn(email, password);
-      if (!result?.isApproved || result?.isPendingApproval) {
-        navigate('/pending-verification', { replace: true });
-      } else {
+      if (result?.isApproved) {
         navigate('/discover', { replace: true });
+      } else {
+        navigate('/profile', { replace: true });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Authentication failed';
