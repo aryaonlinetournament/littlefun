@@ -135,8 +135,8 @@ export default function RequestsPage() {
   const queryClient = useQueryClient();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [locationModalState, setLocationModalState] = useState('Bihar');
-  const [locationModalCity, setLocationModalCity] = useState('Patna');
+  const [locationModalState, setLocationModalState] = useState('Delhi');
+  const [locationModalCity, setLocationModalCity] = useState('Delhi');
   const [updatingLocation, setUpdatingLocation] = useState(false);
 
   // Fetch logged in customer's profile to dynamically adapt companion locations
@@ -183,10 +183,10 @@ export default function RequestsPage() {
       }
     }
 
-    // Fallback if still empty
+    // Default fallback only if user has never selected any location (e.g. guest/unregistered)
     if (!city) {
-      city = 'Patna';
-      state = 'Bihar';
+      city = 'Delhi';
+      state = '';
     }
 
     const loc = city ? `${city}${state ? `, ${state}` : ''}` : 'Nearby';
