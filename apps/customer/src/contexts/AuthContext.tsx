@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { authApi, usersApi, clearTokenCache, type ClientRegisterPayload } from '../lib/api';
 
 export type UserStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'BANNED' | 'DELETED';
@@ -63,15 +64,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
 
-  const syncUserData = useCallback(async () => {
+  const syncUserData = useCallback(async (isPolling = false) => {
     try {
-      // ⚡ Run /register and /me in PARALLEL (was serial — 2 roundtrips → now 1)
+      // ⚡ Only hit /api/auth/register on explicit sign-in/up; during 30s background polling, query /api/users/me only
       const [regResult, meData] = await Promise.all([
-        authApi.register().catch(() => ({ isNewUser: false, uniqueId: null })),
+        !isPolling ? authApi.register().catch(() => ({ isNewUser: false, uniqueId: null })) : Promise.resolve(null),
         usersApi.me().catch(() => null) as Promise<UserMeResponse | null>,
       ]);
 
-      if (regResult?.isNewUser !== undefined) setIsNewUser(regResult.isNewUser);
+      if (regResult && regResult.isNewUser !== undefined) setIsNewUser(regResult.isNewUser);
       if (regResult?.uniqueId) setUniqueId(regResult.uniqueId);
 
       if (meData?.user) {
@@ -131,12 +132,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (firebaseUser) {
-        await syncUserData();
+        await syncUserData(false);
 
         // Start 30s polling to detect admin-side status changes in real-time
         syncIntervalRef.current = setInterval(async () => {
           if (auth.currentUser) {
-            await syncUserData();
+            await syncUserData(true);
           }
         }, 30_000);
       } else {
@@ -165,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryClient.clear();
     const cred = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     setUser(cred.user);
-    const result = await syncUserData();
+    const result = await syncUserData(false);
     setIsLoading(false);
     return result;
   };
@@ -179,11 +180,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateProfile(cred.user, { displayName });
     }
     setUser(cred.user);
-    await syncUserData();
+    await syncUserData(false);
     setIsLoading(false);
   };
 
   const registerClient = async (payload: ClientRegisterPayload) => {
+    // 1. Immediately cache location in localStorage
+    if (payload.city) {
+      try {
+        const parts = payload.city.split(',');
+        localStorage.setItem('lf_customer_city', parts[0].trim());
+        if (parts[1]) localStorage.setItem('lf_customer_state', parts[1].trim());
+        localStorage.setItem('lf_customer_location', payload.city.trim());
+      } catch {
+        // localStorage fallback
+      }
+    }
+
     try {
       const res = await authApi.registerClient(payload);
       if (res?.uniqueId) setUniqueId(res.uniqueId);
@@ -191,7 +204,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setVerificationStatus('PENDING');
       return { uniqueId: res?.uniqueId || ('#LF-' + Math.floor(100000 + Math.random() * 900000)) };
     } catch (e) {
-      console.warn('registerClient backend sync deferred:', e);
+      console.warn('registerClient backend sync deferred, executing Supabase fallback:', e);
+
+      // Direct Supabase fallback to ensure city and profile are NEVER lost
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          let resolvedCityId = payload.cityId || null;
+          if (!resolvedCityId && payload.city) {
+            const cityName = payload.city.split(',')[0].trim();
+            const stateName = payload.city.split(',')[1]?.trim() || null;
+            const { data: existingCity } = await supabase
+              .from('cities')
+              .select('id')
+              .ilike('name', cityName)
+              .maybeSingle();
+            if (existingCity) {
+              resolvedCityId = existingCity.id;
+            } else {
+              const { data: newCity } = await supabase
+                .from('cities')
+                .insert({ name: cityName, state: stateName, is_active: true })
+                .select('id')
+                .maybeSingle();
+              if (newCity) resolvedCityId = newCity.id;
+            }
+          }
+
+          const { data: dbUser } = await supabase
+            .from('users')
+            .select('id, unique_id')
+            .or(`firebase_uid.eq.${currentUser.uid},email.ilike.${currentUser.email}`)
+            .maybeSingle();
+
+          if (dbUser) {
+            if (payload.phone) {
+              await supabase.from('users').update({ phone: payload.phone.trim() }).eq('id', dbUser.id);
+            }
+            await supabase.from('profiles').update({
+              display_name: payload.name,
+              age: payload.age || null,
+              gender: payload.gender || null,
+              interests: payload.interests || [],
+              bio: payload.bio || (payload.city ? `Excited to connect in ${payload.city}.` : null),
+              city_id: resolvedCityId,
+              profile_completion: 75,
+            }).eq('user_id', dbUser.id);
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn('registerClient Supabase direct fallback warning:', fallbackErr);
+      }
+
       setUserStatus('PENDING');
       setVerificationStatus('PENDING');
       const fallbackId = '#LF-' + Math.floor(100000 + Math.random() * 900000);

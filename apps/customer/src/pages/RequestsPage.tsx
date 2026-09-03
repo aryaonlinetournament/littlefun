@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dummyProfilesApi, requestsApi, profilesApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
+import { INDIA_STATES_AND_CITIES } from './RegisterPage';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 
@@ -129,7 +132,12 @@ export default function RequestsPage() {
     setUserBids([]);
   }, [currentUid]);
 
+  const queryClient = useQueryClient();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationModalState, setLocationModalState] = useState('Bihar');
+  const [locationModalCity, setLocationModalCity] = useState('Patna');
+  const [updatingLocation, setUpdatingLocation] = useState(false);
 
   // Fetch logged in customer's profile to dynamically adapt companion locations
   const { data: profileData } = useQuery({
@@ -138,16 +146,110 @@ export default function RequestsPage() {
     staleTime: 60_000,
   });
 
-  const detectedCity = (() => {
+  const { detectedCity, detectedState, displayLocation } = useMemo(() => {
     const p = (profileData as any)?.profile;
-    if (p?.cities?.name) return p.cities.name;
-    if (typeof p?.city === 'string' && p.city.trim()) {
-      return p.city.split(',')[0].trim();
+    let city = p?.cities?.name || '';
+    let state = p?.cities?.state || '';
+
+    // If city is formatted as "Patna, Bihar" in p?.city
+    if (!city && typeof p?.city === 'string' && p.city.trim()) {
+      const parts = p.city.split(',');
+      city = parts[0].trim();
+      if (parts[1]) state = parts[1].trim();
     }
-    const saved = localStorage.getItem('lf_customer_city');
-    if (saved) return saved;
-    return 'Delhi';
-  })();
+
+    // From bio if it mentions "in Patna, Bihar" or "in Patna"
+    if (!city && p?.bio && typeof p.bio === 'string' && p.bio.includes('connect in ')) {
+      const match = p.bio.match(/connect in ([^,.]+)(?:,\s*([^.]+))?/i);
+      if (match) {
+        city = match[1]?.trim() || '';
+        if (match[2]) state = match[2]?.trim() || '';
+      }
+    }
+
+    // From localStorage
+    if (!city) {
+      city = localStorage.getItem('lf_customer_city') || '';
+    }
+    if (!state) {
+      state = localStorage.getItem('lf_customer_state') || '';
+    }
+    if (!city) {
+      const savedLoc = localStorage.getItem('lf_customer_location');
+      if (savedLoc) {
+        const parts = savedLoc.split(',');
+        city = parts[0].trim();
+        if (parts[1]) state = parts[1].trim();
+      }
+    }
+
+    // Fallback if still empty
+    if (!city) {
+      city = 'Patna';
+      state = 'Bihar';
+    }
+
+    const loc = city ? `${city}${state ? `, ${state}` : ''}` : 'Nearby';
+    return { detectedCity: city, detectedState: state, displayLocation: loc };
+  }, [profileData]);
+
+  const handleLocationUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!locationModalCity || !locationModalState) return;
+
+    setUpdatingLocation(true);
+    try {
+      localStorage.setItem('lf_customer_city', locationModalCity.trim());
+      localStorage.setItem('lf_customer_state', locationModalState.trim());
+      localStorage.setItem('lf_customer_location', `${locationModalCity.trim()}, ${locationModalState.trim()}`);
+
+      // Direct Supabase update
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        let cityId: string | null = null;
+        const { data: existingCity } = await supabase
+          .from('cities')
+          .select('id')
+          .ilike('name', locationModalCity.trim())
+          .maybeSingle();
+
+        if (existingCity) {
+          cityId = existingCity.id;
+        } else {
+          const { data: newCity } = await supabase
+            .from('cities')
+            .insert({ name: locationModalCity.trim(), state: locationModalState.trim(), is_active: true })
+            .select('id')
+            .maybeSingle();
+          if (newCity) cityId = newCity.id;
+        }
+
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id')
+          .or(`firebase_uid.eq.${currentUser.uid},email.ilike.${currentUser.email}`)
+          .maybeSingle();
+
+        if (dbUser && cityId) {
+          await supabase.from('profiles').update({
+            city_id: cityId,
+            bio: `Excited to connect in ${locationModalCity.trim()}, ${locationModalState.trim()}.`,
+          }).eq('user_id', dbUser.id);
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['customer-profile-for-location'] });
+      await queryClient.invalidateQueries({ queryKey: ['profile'] });
+
+      setShowLocationModal(false);
+      setToastMessage(`📍 Location updated to ${locationModalCity.trim()}, ${locationModalState.trim()}!`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err) {
+      console.error('Failed to update location:', err);
+    } finally {
+      setUpdatingLocation(false);
+    }
+  };
 
   const { data: dummyData } = useQuery({
     queryKey: ['live-dummy-profiles'],
@@ -196,7 +298,7 @@ export default function RequestsPage() {
         id: p.id,
         name: p.name,
         age: p.age ?? 24,
-        area: `${detectedCity} (Nearby ~25 km)`,
+        area: `${displayLocation} (Nearby ~25 km)`,
         hourlyRate: p.hourlyRate ?? p.hourly_rate ?? 2500,
         photo: p.avatar && p.avatar.startsWith('http') ? p.avatar : DEFAULT_DUMMY_AVATAR,
         meetingType: p.meetingType ?? 'Companion Meetup ☕',
@@ -206,7 +308,7 @@ export default function RequestsPage() {
       }))
     : DEFAULT_DISCOVER_PROFILES.map((p) => ({
         ...p,
-        area: `${detectedCity} (Nearby ~25 km)`,
+        area: `${displayLocation} (Nearby ~25 km)`,
       }));
 
   const handleBidSubmit = async (e: React.FormEvent) => {
@@ -264,17 +366,26 @@ export default function RequestsPage() {
               <span>✨</span> Discover Companion Profiles
             </h2>
             <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 1, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Showing companions within <strong>25 km nearby</strong> in {detectedCity}
+              Showing companions within <strong>25 km nearby</strong> in {displayLocation}
             </div>
           </div>
-          <span style={{
-            fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap', flexShrink: 0,
-            background: '#EFF6FF', color: '#1D4ED8',
-            padding: '4px 10px', borderRadius: 99, border: '1px solid #BFDBFE',
-            display: 'inline-flex', alignItems: 'center', gap: 4
-          }}>
-            📍 {detectedCity} (~25 km)
-          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setLocationModalState(detectedState || 'Bihar');
+              setLocationModalCity(detectedCity || 'Patna');
+              setShowLocationModal(true);
+            }}
+            style={{
+              fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap', flexShrink: 0,
+              background: '#EFF6FF', color: '#1D4ED8',
+              padding: '5px 11px', borderRadius: 99, border: '1px solid #BFDBFE',
+              display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer'
+            }}
+            title="Click to change your location"
+          >
+            📍 {displayLocation} (~25 km) ✏️
+          </button>
         </div>
 
         {toastMessage && (
@@ -694,6 +805,105 @@ export default function RequestsPage() {
                   🎯 Submit Proposal
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Change City / Location Modal */}
+        {showLocationModal && (
+          <div
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            }}
+            onClick={() => setShowLocationModal(false)}
+          >
+            <div
+              style={{
+                background: 'var(--color-surface, #ffffff)', borderRadius: '18px', padding: 24,
+                maxWidth: 400, width: '100%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', border: '1px solid #E2E8F0',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📍</span> Select Your Location
+                </h3>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748B' }}
+                  onClick={() => setShowLocationModal(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p style={{ fontSize: '0.82rem', color: '#64748B', margin: '0 0 16px 0', lineHeight: 1.45 }}>
+                Companion profiles and nearby meetups will adapt to your selected city and state within a 25 km radius.
+              </p>
+
+              <form onSubmit={handleLocationUpdate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1E293B' }}>
+                    State / Region (All 28 States)
+                  </label>
+                  <select
+                    className="form-input"
+                    value={locationModalState}
+                    onChange={(e) => {
+                      const newState = e.target.value;
+                      setLocationModalState(newState);
+                      const defaultCity = INDIA_STATES_AND_CITIES[newState]?.[0] || '';
+                      setLocationModalCity(defaultCity);
+                    }}
+                    style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: '0.9rem', outline: 'none' }}
+                  >
+                    {Object.keys(INDIA_STATES_AND_CITIES).map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1E293B' }}>
+                    Primary City
+                  </label>
+                  <select
+                    className="form-input"
+                    value={locationModalCity}
+                    onChange={(e) => setLocationModalCity(e.target.value)}
+                    style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: '0.9rem', outline: 'none' }}
+                  >
+                    {(INDIA_STATES_AND_CITIES[locationModalState] || []).map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ flex: 1, padding: 12, borderRadius: 10 }}
+                    onClick={() => setShowLocationModal(false)}
+                    disabled={updatingLocation}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{
+                      flex: 1.5, padding: 12, borderRadius: 10, fontWeight: 800,
+                      background: 'linear-gradient(135deg, var(--color-primary, #C8386D), #BE185D)',
+                      border: 'none', color: '#ffffff', cursor: 'pointer'
+                    }}
+                    disabled={updatingLocation}
+                  >
+                    {updatingLocation ? 'Saving...' : '✓ Set Location'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

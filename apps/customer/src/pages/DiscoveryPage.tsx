@@ -77,8 +77,32 @@ export default function DiscoveryPage() {
   };
 
   const userName = getCleanName();
-  const userCity = (profileData as any)?.profile?.cities?.name || (profileData as any)?.profile?.city || '';
-  const userState = (profileData as any)?.profile?.cities?.state || '';
+  const userCity = (() => {
+    const p = (profileData as any)?.profile;
+    if (p?.cities?.name) return p.cities.name;
+    if (typeof p?.city === 'string' && p.city.trim()) return p.city.split(',')[0].trim();
+    if (p?.bio && typeof p.bio === 'string' && p.bio.includes('connect in ')) {
+      const match = p.bio.match(/connect in ([^,.]+)/i);
+      if (match) return match[1].trim();
+    }
+    const saved = localStorage.getItem('lf_customer_city');
+    if (saved) return saved;
+    const savedLoc = localStorage.getItem('lf_customer_location');
+    if (savedLoc) return savedLoc.split(',')[0].trim();
+    return '';
+  })();
+
+  const userState = (() => {
+    const p = (profileData as any)?.profile;
+    if (p?.cities?.state) return p.cities.state;
+    if (typeof p?.city === 'string' && p.city.includes(',')) return p.city.split(',')[1].trim();
+    const saved = localStorage.getItem('lf_customer_state');
+    if (saved) return saved;
+    const savedLoc = localStorage.getItem('lf_customer_location');
+    if (savedLoc && savedLoc.includes(',')) return savedLoc.split(',')[1].trim();
+    return '';
+  })();
+
   const locationLabel = userCity ? `${userCity}${userState ? `, ${userState}` : ''}` : '';
 
   // Share Connection Request State

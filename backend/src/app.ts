@@ -89,10 +89,10 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Stricter limit for auth endpoints — 20 per 15min (registration spikes)
+// Auth endpoints rate limiting (supports registration and concurrent users)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

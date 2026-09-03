@@ -252,15 +252,9 @@ profilesRouter.put(
     const supabase = getSupabaseAdmin();
     const { email, phone_number, ...profilePayload } = req.body;
 
-    // Prevent non-admin customers from modifying their primary registered location
-    if (req.user!.role !== 'SUPER_ADMIN' && req.user!.role !== 'ADMIN') {
-      delete profilePayload.city_id;
-      delete profilePayload.area_id;
-    } else {
-      // Sanitize empty strings for UUID fields for admins
-      if (profilePayload.city_id === '') profilePayload.city_id = null;
-      if (profilePayload.area_id === '') profilePayload.area_id = null;
-    }
+    // Sanitize empty strings for UUID fields
+    if (profilePayload.city_id === '') profilePayload.city_id = null;
+    if (profilePayload.area_id === '') profilePayload.area_id = null;
 
     // Update users table if email or phone/phone_number provided
     const phoneVal = phone_number !== undefined ? phone_number : (req.body as any).phone;

@@ -175,6 +175,13 @@ export default function RegisterPage() {
       setError('Please select your State and City.');
       return;
     }
+    try {
+      localStorage.setItem('lf_customer_city', city.trim());
+      localStorage.setItem('lf_customer_state', selectedState.trim());
+      localStorage.setItem('lf_customer_location', `${city.trim()}, ${selectedState.trim()}`);
+    } catch {
+      // localStorage fallback
+    }
     setError('');
     setStep(3);
   };
@@ -184,6 +191,15 @@ export default function RegisterPage() {
     if (!selfieUrl) {
       setError('Please upload a clear selfie or photo for verification.');
       return;
+    }
+
+    // Persist location immediately
+    try {
+      localStorage.setItem('lf_customer_city', city.trim());
+      localStorage.setItem('lf_customer_state', selectedState.trim());
+      localStorage.setItem('lf_customer_location', `${city.trim()}, ${selectedState.trim()}`);
+    } catch {
+      // localStorage fallback
     }
 
     setError('');

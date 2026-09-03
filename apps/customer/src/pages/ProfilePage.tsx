@@ -646,7 +646,15 @@ export default function ProfilePage() {
                   type="text"
                   disabled
                   readOnly
-                  value={(profile?.cities as any)?.name ? `${(profile?.cities as any)?.name}${(profile?.cities as any)?.state ? `, ${(profile?.cities as any)?.state}` : ''}` : (profile?.city as string) || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'India'}
+                  value={
+                    (profile?.cities as any)?.name
+                      ? `${(profile?.cities as any)?.name}${(profile?.cities as any)?.state ? `, ${(profile?.cities as any)?.state}` : ''}`
+                      : (profile?.city as string) ||
+                        localStorage.getItem('lf_customer_location') ||
+                        (localStorage.getItem('lf_customer_city') ? `${localStorage.getItem('lf_customer_city')}${localStorage.getItem('lf_customer_state') ? `, ${localStorage.getItem('lf_customer_state')}` : ''}` : '') ||
+                        (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') ||
+                        'Patna, Bihar'
+                  }
                   style={{ background: '#F1F5F9', color: '#64748B', cursor: 'not-allowed', fontWeight: 600 }}
                 />
                 <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
