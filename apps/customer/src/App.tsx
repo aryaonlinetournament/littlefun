@@ -51,18 +51,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <div className="app-loading"><div className="spinner" /></div>;
-  if (!user) return <Navigate to="/login" replace />;
-  return <>{children}</>;
-}
+
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isPendingApproval } = useAuth();
   if (isLoading) return <div className="app-loading"><div className="spinner" /></div>;
   if (user) {
-    if (isPendingApproval) return <Navigate to="/profile" replace />;
+    if (isPendingApproval) return <Navigate to="/pending-verification" replace />;
     return <Navigate to="/discover" replace />;
   }
   return <>{children}</>;
@@ -118,7 +113,7 @@ export default function App() {
                   />
                   <Route
                     path="/profile"
-                    element={<AuthenticatedRoute><ProfilePage /></AuthenticatedRoute>}
+                    element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
                   />
                   <Route
                     path="/requests"

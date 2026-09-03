@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { profilesApi } from '../lib/api';
+import { profilesApi, usersApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => profilesApi.me() as Promise<{ profile: Profile }>,
+    refetchInterval: 4000, // Real-time sync when Admin approves account
   });
 
   const profile = (profileData as { profile: Profile })?.profile as Profile | undefined;
@@ -74,6 +75,13 @@ export default function ProfilePage() {
       if (Array.isArray(rawForm.interests)) cleanForm.interests = rawForm.interests;
 
       const result = await profilesApi.update(cleanForm);
+      if (cleanForm.phone_number) {
+        try {
+          await usersApi.updateMe({ phone: String(cleanForm.phone_number).trim() });
+        } catch {
+          // ignore
+        }
+      }
       if (cleanForm.display_name && auth.currentUser) {
         try {
           await updateProfile(auth.currentUser, { displayName: String(cleanForm.display_name) });
@@ -102,8 +110,10 @@ export default function ProfilePage() {
     setEditing(true);
   };
 
+  const isSuperAdmin = user?.email?.toLowerCase().trim() === 'aryaonlinetournament@gmail.com' || (profile as any)?.users?.role === 'SUPER_ADMIN' || (profile as any)?.role === 'SUPER_ADMIN';
+  const userStatus = (profile as any)?.users?.status || (profile as any)?.status || (user as any)?.status || '';
   const verificationStatus = (profile?.verification_status as string) ?? 'UNVERIFIED';
-  const isVerified = verificationStatus === 'APPROVED';
+  const isVerified = isSuperAdmin || verificationStatus === 'APPROVED' || userStatus === 'ACTIVE';
 
   const toggleInterest = (interest: string) => {
     const cur = (form.interests as string[]) ?? [];
@@ -219,8 +229,8 @@ export default function ProfilePage() {
 
       <div className="page-content" style={{ paddingTop: 'var(--space-sm)' }}>
 
-        {/* Verification Status Banner (If Pending) */}
-        {!isVerified && (
+        {/* Verification Status Banner (Only shows when awaiting admin approval) */}
+        {!isVerified ? (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(234, 88, 12, 0.08) 100%)',
@@ -257,6 +267,38 @@ export default function ProfilePage() {
             >
               Verify Now →
             </Link>
+          </div>
+        ) : (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(22, 163, 74, 0.06) 0%, rgba(34, 197, 94, 0.1) 100%)',
+              border: '1.5px solid rgba(34, 197, 94, 0.3)',
+              borderRadius: '16px',
+              padding: '10px 16px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '1.3rem' }}>👑</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.86rem', color: '#15803D' }}>
+                  VIP Account Verified by Admin ✓
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#166534', marginTop: 1 }}>
+                  Full companion portal &amp; direct chat access unlocked.
+                </div>
+              </div>
+            </div>
+            <span style={{
+              background: '#16A34A', color: 'white', fontSize: '0.68rem',
+              fontWeight: 800, padding: '3px 9px', borderRadius: 99,
+            }}>
+              VERIFIED
+            </span>
           </div>
         )}
 
@@ -593,6 +635,26 @@ export default function ProfilePage() {
               </div>
 
               <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>📍 Primary Location</span>
+                  <span style={{ fontSize: '0.72rem', color: '#B45309', background: '#FEF3C7', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                    🔒 Locked at Registration
+                  </span>
+                </label>
+                <input
+                  className="form-input"
+                  type="text"
+                  disabled
+                  readOnly
+                  value={(profile?.cities as any)?.name ? `${(profile?.cities as any)?.name}${(profile?.cities as any)?.state ? `, ${(profile?.cities as any)?.state}` : ''}` : (profile?.city as string) || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'India'}
+                  style={{ background: '#F1F5F9', color: '#64748B', cursor: 'not-allowed', fontWeight: 600 }}
+                />
+                <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
+                  Location registration ke waqt permanently lock ho chuki hai. Aapke discover matches aur ongoing meetups isi location ke mutabiq load honge.
+                </div>
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">Date of Birth</label>
                 <input className="form-input" type="date" value={(form.date_of_birth as string) ?? ''}
                   onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
@@ -675,9 +737,12 @@ export default function ProfilePage() {
                 </div>
 
                 <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0' }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>📍 Location</div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-3)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>📍 Primary Location</span>
+                    <span style={{ fontSize: '0.62rem', color: '#B45309', background: '#FEF3C7', padding: '1px 6px', borderRadius: 99, fontWeight: 700 }}>🔒 Locked</span>
+                  </div>
                   <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--color-text)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {(profile?.city as string) || (profile?.cities as any)?.name || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'Not specified'}
+                    {(profile?.cities as any)?.name ? `${(profile?.cities as any)?.name}${(profile?.cities as any)?.state ? `, ${(profile?.cities as any)?.state}` : ''}` : (profile?.city as string) || (profile?.bio && String(profile.bio).includes('in ') ? String(profile.bio).split('in ')[1]?.replace('.', '') : '') || 'Not specified'}
                   </div>
                 </div>
               </div>

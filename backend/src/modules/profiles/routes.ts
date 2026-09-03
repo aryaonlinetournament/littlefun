@@ -252,15 +252,22 @@ profilesRouter.put(
     const supabase = getSupabaseAdmin();
     const { email, phone_number, ...profilePayload } = req.body;
 
-    // Sanitize empty strings for UUID fields
-    if (profilePayload.city_id === '') profilePayload.city_id = null;
-    if (profilePayload.area_id === '') profilePayload.area_id = null;
+    // Prevent non-admin customers from modifying their primary registered location
+    if (req.user!.role !== 'SUPER_ADMIN' && req.user!.role !== 'ADMIN') {
+      delete profilePayload.city_id;
+      delete profilePayload.area_id;
+    } else {
+      // Sanitize empty strings for UUID fields for admins
+      if (profilePayload.city_id === '') profilePayload.city_id = null;
+      if (profilePayload.area_id === '') profilePayload.area_id = null;
+    }
 
-    // Update users table if email or phone_number provided
-    if (email !== undefined || phone_number !== undefined) {
+    // Update users table if email or phone/phone_number provided
+    const phoneVal = phone_number !== undefined ? phone_number : (req.body as any).phone;
+    if (email !== undefined || phoneVal !== undefined) {
       const userUpdates: Record<string, unknown> = {};
       if (email !== undefined) userUpdates.email = email || null;
-      if (phone_number !== undefined) userUpdates.phone = phone_number || null;
+      if (phoneVal !== undefined) userUpdates.phone = phoneVal ? String(phoneVal).trim() : null;
       await supabase.from('users').update(userUpdates).eq('id', req.user!.id);
     }
 

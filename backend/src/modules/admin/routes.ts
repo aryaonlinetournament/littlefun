@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireAdmin, requireSuperAdmin } from '../../middleware/auth';
+import { requireAuth, requireAdmin, requireSuperAdmin, invalidateUserCache } from '../../middleware/auth';
 import { validateBody } from '../../middleware/validation';
 import { getSupabaseAdmin } from '../../services/supabase/supabaseClient';
 import { AuditService, hashIp } from '../../services/AuditService';
 import { NotificationService } from '../../services/notifications/NotificationService';
+import { getFirebaseAdmin } from '../../services/firebase/firebaseAdmin';
 
 export const adminRouter = Router();
 
@@ -26,8 +27,10 @@ adminRouter.get('/dashboard', async (_req: Request, res: Response) => {
     { count: totalRequests },
     { count: pendingReports },
     { count: newUsersToday },
+    { count: bannedUsers },
+    { count: deletedUsers },
   ] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }).neq('role', 'ADMIN'),
+    supabase.from('users').select('*', { count: 'exact', head: true }).neq('role', 'SUPER_ADMIN'),
     supabase.from('users').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE').eq('role', 'CUSTOMER'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('discovery_status', 'VISIBLE'),
@@ -35,12 +38,14 @@ adminRouter.get('/dashboard', async (_req: Request, res: Response) => {
     supabase.from('meeting_requests').select('*', { count: 'exact', head: true }),
     supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'PENDING'),
     supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+    supabase.from('users').select('*', { count: 'exact', head: true }).eq('status', 'BANNED'),
+    supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('action', 'ADMIN_DELETED_USER'),
   ]);
 
   res.json({
     success: true,
     dashboard: {
-      users: { total: totalUsers, active: activeUsers, newToday: newUsersToday },
+      users: { total: totalUsers, active: activeUsers, newToday: newUsersToday, banned: bannedUsers || 0, deleted: deletedUsers || 0 },
       profiles: { total: totalProfiles, visible: visibleProfiles },
       requests: { pending: pendingRequests, total: totalRequests },
       moderation: { pendingReports },
@@ -267,9 +272,13 @@ adminRouter.post('/verification-queue/:id/approve', async (req: Request, res: Re
     // Activate user in users table
     const { data: profile } = await supabase.from('profiles').select('user_id').eq('id', profileId).single();
     if (profile?.user_id) {
-      await supabase.from('users').update({ status: 'ACTIVE' }).eq('id', profile.user_id);
+      const { data: updatedUser } = await supabase.from('users').update({ status: 'ACTIVE' }).eq('id', profile.user_id).select('firebase_uid').single();
       const { NotificationService } = await import('../../services/notifications/NotificationService');
       await NotificationService.profileVerified(profile.user_id).catch(() => {});
+      
+      if (updatedUser?.firebase_uid) {
+        invalidateUserCache(updatedUser.firebase_uid);
+      }
     }
   }
 
@@ -333,6 +342,11 @@ adminRouter.post(
           body: req.body.reason,
           data: { type: 'VERIFICATION_REJECTED' },
         }).catch(() => {});
+        
+        const { data: user } = await supabase.from('users').select('firebase_uid').eq('id', profile.user_id).single();
+        if (user?.firebase_uid) {
+          invalidateUserCache(user.firebase_uid);
+        }
       }
     }
 
@@ -680,3 +694,136 @@ adminRouter.post(
     });
   }
 );
+
+// ── POST /api/admin/sync-firebase-users ───────────────────────────
+adminRouter.post('/sync-firebase-users', requireSuperAdmin, async (req: Request, res: Response) => {
+  const supabase = getSupabaseAdmin();
+
+  // Verify Firebase Admin is initialized
+  let firebaseApp: ReturnType<typeof getFirebaseAdmin>;
+  try {
+    firebaseApp = getFirebaseAdmin();
+    if (!firebaseApp) throw new Error('Firebase Admin not initialized. Check FIREBASE_SERVICE_ACCOUNT_KEY env var.');
+  } catch (initErr: any) {
+    res.status(500).json({ success: false, error: { code: 'FIREBASE_INIT_ERROR', message: initErr.message } });
+    return;
+  }
+
+  const synced: string[]  = [];
+  const skipped: string[] = [];
+  const failed:  string[] = [];
+
+  let pageToken: string | undefined;
+
+  try {
+    do {
+      const listResult = await firebaseApp.auth().listUsers(1000, pageToken);
+      pageToken = listResult.pageToken;
+
+      for (const fbUser of listResult.users) {
+        try {
+          // Check by firebase_uid first
+          const { data: byUid } = await supabase
+            .from('users')
+            .select('id, firebase_uid')
+            .eq('firebase_uid', fbUser.uid)
+            .maybeSingle();
+
+          if (byUid) {
+            skipped.push(fbUser.uid);
+            continue;
+          }
+
+          // Check by email (if user has one)
+          let existingId: string | null = null;
+          if (fbUser.email) {
+            const { data: byEmail } = await supabase
+              .from('users')
+              .select('id, firebase_uid')
+              .ilike('email', fbUser.email)
+              .maybeSingle();
+
+            if (byEmail) {
+              // Link the firebase_uid to the existing Supabase record
+              await supabase
+                .from('users')
+                .update({ firebase_uid: fbUser.uid })
+                .eq('id', byEmail.id);
+              skipped.push(fbUser.uid);
+              continue;
+            }
+          }
+
+          void existingId; // suppress unused warning
+
+          // Not found anywhere — insert new record
+          const displayName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Client';
+          const { data: newUser, error: insertErr } = await supabase
+            .from('users')
+            .insert({
+              firebase_uid: fbUser.uid,
+              email:        fbUser.email       ?? null,
+              phone:        fbUser.phoneNumber ?? null,
+              role:         'CUSTOMER',
+              status:       'PENDING',
+              created_at:   fbUser.metadata.creationTime
+                              ? new Date(fbUser.metadata.creationTime).toISOString()
+                              : new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+
+          if (insertErr || !newUser) {
+            console.error('[sync-firebase] Insert failed for', fbUser.uid, insertErr?.message);
+            failed.push(fbUser.uid);
+            continue;
+          }
+
+          // Stub profile
+          await supabase.from('profiles').insert({
+            user_id:             newUser.id,
+            display_name:        displayName,
+            profile_completion:  10,
+            verification_status: 'PENDING',
+            discovery_status:    'HIDDEN',
+          });
+
+          // Preferences row (ignore failure)
+          try {
+            await supabase.from('user_preferences').insert({ user_id: newUser.id });
+          } catch { /* optional row */ }
+
+          synced.push(fbUser.uid);
+        } catch (userErr: any) {
+          console.error('[sync-firebase] Error processing', fbUser.uid, userErr?.message);
+          failed.push(fbUser.uid);
+        }
+      }
+    } while (pageToken);
+  } catch (listErr: any) {
+    console.error('[sync-firebase] listUsers failed:', listErr?.message);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FIREBASE_LIST_ERROR', message: listErr?.message || 'Failed to list Firebase users.' },
+    });
+    return;
+  }
+
+  await AuditService.adminAction({
+    actor:      req.user!,
+    action:     'ADMIN_SYNCED_FIREBASE_USERS',
+    entityType: 'users',
+    entityId:   'bulk',
+    newValue:   { synced: synced.length, skipped: skipped.length, failed: failed.length },
+    ipHash:     hashIp(req.ip),
+  });
+
+  res.json({
+    success:    true,
+    message:    `Sync complete. ${synced.length} new users imported, ${skipped.length} already existed, ${failed.length} failed.`,
+    synced:     synced.length,
+    skipped:    skipped.length,
+    failed:     failed.length,
+    failedUids: failed,
+  });
+});

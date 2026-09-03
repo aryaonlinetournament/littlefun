@@ -83,10 +83,10 @@ discoveryRouter.get(
       }
     }
 
-    // Run matching engine
+    // Run matching engine strictly prioritizing customer's primary registered city
     const results = await MatchingService.findCandidates(user, {
       limit: Math.min(discoveryLimit, 25),
-      cityId: city_id ?? myProfile.city_id ?? undefined,
+      cityId: myProfile.city_id ?? city_id ?? undefined,
       requirement: requirementContext,
     });
 

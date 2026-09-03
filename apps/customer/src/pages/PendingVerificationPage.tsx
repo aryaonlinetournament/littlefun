@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usersApi } from '../lib/api';
 
 export default function PendingVerificationPage() {
   const { user, uniqueId, userStatus, verificationStatus, refreshUser, logOut } = useAuth();
@@ -111,6 +112,11 @@ export default function PendingVerificationPage() {
   const handleUtrSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!utrNumber.trim() || !custPhone.trim()) return;
+
+    // Save phone number directly to Supabase users table so Admin Panel sees it
+    usersApi.updateMe({ phone: custPhone.trim() }).catch((err) => {
+      console.warn('Failed to sync phone to backend:', err);
+    });
 
     const record = {
       memberId: uniqueId || 'N/A',

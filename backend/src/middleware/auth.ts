@@ -10,9 +10,10 @@ interface CachedUser {
   expiresAt: number;
 }
 
-// Keyed by firebase_uid — TTL: 60 seconds
+// Keyed by firebase_uid — TTL: 30 seconds
+// ⚡ Reduced from 60s → 30s so admin status changes (PENDING→ACTIVE) propagate faster
 const userCache = new Map<string, CachedUser>();
-const CACHE_TTL_MS = 60_000; // 60 seconds
+const CACHE_TTL_MS = 30_000; // 30 seconds
 const CACHE_MAX_SIZE = 10_000; // prevent unbounded memory growth
 
 function getCachedUser(uid: string): AuthenticatedUser | null {

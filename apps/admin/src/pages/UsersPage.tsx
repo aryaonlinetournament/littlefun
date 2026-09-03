@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../lib/api';
 
@@ -29,6 +29,10 @@ export default function UsersPage() {
   const [copied, setCopied] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', phone: '', temporaryPassword: '', role: 'CUSTOMER', planName: 'FREE', city: '' });
   const [createdCreds, setCreatedCreds] = useState<{ email: string; uniqueId: string; password?: string } | null>(null);
+
+  // Firebase Sync state
+  const [syncResult, setSyncResult] = useState<{ synced: number; skipped: number; failed: number; message: string } | null>(null);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   // Reset Password Modal State
   const [resetUser, setResetUser] = useState<User | null>(null);
@@ -91,10 +95,20 @@ export default function UsersPage() {
     });
   };
 
-  const { data, isLoading } = useQuery({
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['users', role, status, search],
     queryFn: () => adminApi.users({ role, status, search }) as Promise<{ users: User[]; total: number }>,
+    refetchInterval: 15_000,        // auto-refresh every 15s — shows new logins in real-time
+    refetchOnWindowFocus: true,     // refresh when admin switches back to this tab
+    staleTime: 10_000,
   });
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+    setLastRefreshed(new Date());
+  }, [refetch]);
 
   const users: User[] = (data as { users: User[] })?.users ?? [];
   const total: number = (data as { total: number })?.total ?? 0;
@@ -144,6 +158,21 @@ export default function UsersPage() {
 
   const registrationUrl = 'https://littlefunwithpartner.web.app/register';
 
+  const syncMutation = useMutation({
+    mutationFn: () => adminApi.syncFirebaseUsers(),
+    onSuccess: (result) => {
+      setSyncResult(result);
+      setShowSyncModal(true);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err: any) => {
+      // Show the actual backend error message so we can debug
+      const msg = err?.error?.message || err?.message || 'Unknown error. Check backend logs.';
+      setSyncResult({ synced: 0, skipped: 0, failed: 0, message: `❌ Sync failed: ${msg}` });
+      setShowSyncModal(true);
+    },
+  });
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(registrationUrl);
     setCopied(true);
@@ -155,11 +184,37 @@ export default function UsersPage() {
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">Users &amp; Clients</h1>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: 2 }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
             Manage client accounts, verification states, and invitation links
+            <span style={{
+              fontSize: '0.72rem', color: 'var(--success)', fontWeight: 600,
+              background: 'rgba(16,185,129,0.08)', padding: '2px 8px',
+              borderRadius: 99, border: '1px solid rgba(16,185,129,0.25)',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', display: 'inline-block', animation: 'pulse-dot 2s infinite' }} />
+              Live · updates every 15s · last at {lastRefreshed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            ↻ Refresh
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            title="Import all Firebase Auth users that are missing from Supabase"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, borderColor: '#6366f1', color: '#6366f1' }}
+          >
+            {syncMutation.isPending ? '⏳ Syncing Firebase…' : '🔄 Sync Firebase Users'}
+          </button>
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => setShowShareModal(true)}
@@ -346,6 +401,10 @@ export default function UsersPage() {
                             Ban
                           </button>
                         )}
+                        <button className="btn btn-xs btn-ghost" style={{ color: '#EF4444' }}
+                          onClick={() => { if (confirm(`PERMANENTLY DELETE ${u.email}?\nThis will erase all their data and remove them from Firebase Auth. This action cannot be undone.`)) statusMutation.mutate({ id: u.id, status: 'DELETED' }); }}>
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -841,6 +900,45 @@ export default function UsersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Firebase Sync Result Modal */}
+      {showSyncModal && syncResult && (
+        <div className="modal-overlay" onClick={() => setShowSyncModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">🔄 Firebase Sync Complete</h2>
+              <button className="modal-close" onClick={() => setShowSyncModal(false)}>✕</button>
+            </div>
+            <div style={{ padding: '24px 24px 8px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', margin: 0 }}>{syncResult.message}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ textAlign: 'center', padding: '16px 8px', background: 'var(--success-bg)', borderRadius: 12 }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--success)' }}>{syncResult.synced}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: 4 }}>New Users Imported</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '16px 8px', background: 'var(--surface-3)', borderRadius: 12 }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text)' }}>{syncResult.skipped}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: 4 }}>Already Existed</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '16px 8px', background: syncResult.failed > 0 ? 'var(--error-bg)' : 'var(--surface-3)', borderRadius: 12 }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: syncResult.failed > 0 ? 'var(--error)' : 'var(--text)' }}>{syncResult.failed}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: 4 }}>Failed</div>
+                </div>
+              </div>
+              {syncResult.synced > 0 && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--success)', margin: 0, background: 'var(--success-bg)', padding: '10px 14px', borderRadius: 8 }}>
+                  ✅ {syncResult.synced} new user{syncResult.synced !== 1 ? 's' : ''} imported with PENDING status. They will appear in the users list now.
+                </p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => { setShowSyncModal(false); handleRefresh(); }}>
+                View Updated Users
+              </button>
+            </div>
           </div>
         </div>
       )}

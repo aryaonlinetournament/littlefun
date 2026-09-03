@@ -15,6 +15,9 @@ build/
 .env.test.local
 .env.production.local
 *.pem
+*serviceAccount*.json
+serviceAccountKey.json
+
 
 # Logs
 npm-debug.log*

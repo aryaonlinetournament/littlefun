@@ -170,11 +170,27 @@ export class ClientStatsService {
 
     const activeMeetups = await this.getWeeklyActiveMeetups(cityId);
 
+    let areaLabel = 'In your area';
+    if (cityId) {
+      try {
+        const { data: cityData } = await supabase
+          .from('cities')
+          .select('name')
+          .eq('id', cityId)
+          .maybeSingle();
+        if (cityData?.name) {
+          areaLabel = `In ${cityData.name}`;
+        }
+      } catch (err) {
+        console.warn('[ClientStatsService] Failed to resolve city name for areaLabel:', err);
+      }
+    }
+
     return {
       activeMeetups,
       profileViews: calculatedViews,
       receivedLikes: calculatedLikes,
-      areaLabel: 'In your area',
+      areaLabel,
       isFirstDay: daysElapsed === 0,
       daysActive: daysElapsed,
       boostPct,

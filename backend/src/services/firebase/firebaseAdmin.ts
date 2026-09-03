@@ -12,24 +12,42 @@ export function initFirebase(): admin.app.App {
   let credential: admin.credential.Credential | undefined;
 
   try {
+    const fs = require('fs');
+    const path = require('path');
+    const candidates = [
+      path.resolve(process.cwd(), 'serviceAccountKey.json'),
+      path.resolve(process.cwd(), 'backend/serviceAccountKey.json'),
+      path.resolve(__dirname, '../../../serviceAccountKey.json'),
+      path.resolve(__dirname, '../../../../serviceAccountKey.json')
+    ];
+    const foundKeyPath = candidates.find((p: string) => fs.existsSync(p));
+
+    let projectId = config.FIREBASE_PROJECT_ID;
+
     if (config.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      // JSON string in env var
-      const serviceAccount = JSON.parse(config.FIREBASE_SERVICE_ACCOUNT_KEY);
+      const parsedKey = typeof config.FIREBASE_SERVICE_ACCOUNT_KEY === 'string' && config.FIREBASE_SERVICE_ACCOUNT_KEY.trim().startsWith('{')
+        ? JSON.parse(config.FIREBASE_SERVICE_ACCOUNT_KEY)
+        : require(path.resolve(process.cwd(), config.FIREBASE_SERVICE_ACCOUNT_KEY));
+      credential = admin.credential.cert(parsedKey);
+      if (parsedKey.project_id) projectId = parsedKey.project_id;
+    } else if (foundKeyPath) {
+      const serviceAccount = JSON.parse(fs.readFileSync(foundKeyPath, 'utf8'));
       credential = admin.credential.cert(serviceAccount);
-    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      // Path to JSON file
-      credential = admin.credential.applicationDefault();
+      if (serviceAccount.project_id) projectId = serviceAccount.project_id;
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+      const serviceAccount = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+      credential = admin.credential.cert(serviceAccount);
+      if (serviceAccount.project_id) projectId = serviceAccount.project_id;
     } else {
-      // Application default fallback for project
       credential = admin.credential.applicationDefault();
     }
 
     app = admin.initializeApp({
       credential,
-      projectId: config.FIREBASE_PROJECT_ID,
+      projectId,
     });
 
-    console.log(`✅  Firebase Admin initialized (project: ${config.FIREBASE_PROJECT_ID})`);
+    console.log(`✅  Firebase Admin initialized with service account (project: ${projectId})`);
   } catch (err: any) {
     console.warn(`⚠️  Firebase Admin initialization skipped/fallback: ${err.message}`);
     // Initialize without credentials or fallback mock app

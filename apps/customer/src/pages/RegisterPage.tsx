@@ -152,6 +152,11 @@ export default function RegisterPage() {
       setError('Please fill in all required fields.');
       return;
     }
+    const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
+    if (!phone.trim() || cleanPhone.length < 10) {
+      setError('Please enter a valid 10-digit mobile/WhatsApp number.');
+      return;
+    }
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
       return;
@@ -164,6 +169,10 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!age || Number(age) < 18) {
       setError('You must be at least 18 years old to join.');
+      return;
+    }
+    if (!city || !selectedState) {
+      setError('Please select your State and City.');
       return;
     }
     setError('');
@@ -293,16 +302,18 @@ export default function RegisterPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="reg-phone">Phone / WhatsApp (Optional)</label>
+              <label className="form-label" htmlFor="reg-phone">Phone / WhatsApp Number (Mandatory) *</label>
               <div className="input-icon-wrapper">
                 <span className="input-lead-icon">📱</span>
                 <input
                   id="reg-phone"
                   type="tel"
                   className="form-input custom-input"
-                  placeholder="+91 98765 43210"
+                  placeholder="e.g. 9876543210 (10 digits)"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  required
+                  minLength={10}
                 />
               </div>
             </div>

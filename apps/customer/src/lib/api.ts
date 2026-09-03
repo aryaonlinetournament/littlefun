@@ -202,6 +202,20 @@ export const usersApi = {
   },
   registerDeviceToken: (token: string, platform: string) =>
     apiFetch('/api/users/device-token', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+  updateMe: async (data: { phone?: string; email?: string }) => {
+    try {
+      return await apiFetch<{ success: boolean; user: any }>('/api/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      console.warn('Backend updateMe fallback to direct Supabase:', err);
+      const user = auth.currentUser;
+      if (user) {
+        await supabase.from('users').update(data).eq('firebase_uid', user.uid);
+      }
+    }
+  },
 };
 
 // ── Profiles ──────────────────────────────────────────────────────

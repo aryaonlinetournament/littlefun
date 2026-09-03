@@ -76,13 +76,13 @@ authRouter.post('/register', requireAuth, async (req: Request, res: Response) =>
  */
 const registerClientSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  age: z.coerce.number().min(18, 'Must be at least 18 years old').max(100).optional(),
+  age: z.coerce.number().min(18, 'Must be at least 18 years old').max(100),
   gender: z.string().optional(),
   interestedIn: z.string().optional(),
   city: z.string().optional(),
   cityId: z.string().uuid().optional(),
   interests: z.array(z.string()).optional(),
-  phone: z.string().optional(),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   selfieUrl: z.string().min(1, 'Verification photo is required'),
   bio: z.string().optional(),
 });
@@ -90,7 +90,7 @@ const registerClientSchema = z.object({
 authRouter.post('/register-client', requireAuth, validateBody(registerClientSchema), async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
   const user = req.user!;
-  const { name, age, gender, interestedIn, cityId, interests = [], phone, selfieUrl, bio } = req.body;
+  const { name, age, gender, interestedIn, cityId, city, interests = [], phone, selfieUrl, bio } = req.body;
 
   // 1. Ensure user is in PENDING state (unless super admin) and save phone
   const userUpdates: Record<string, any> = {};
@@ -104,7 +104,40 @@ authRouter.post('/register-client', requireAuth, validateBody(registerClientSche
     await supabase.from('users').update(userUpdates).eq('id', user.id);
   }
 
-  // 2. Check or create/update profile
+  // 2. Resolve city and compute date_of_birth from age
+  let resolvedCityId = cityId || null;
+  if (!resolvedCityId && city && typeof city === 'string' && city.trim().length > 0) {
+    const cityName = city.split(',')[0].trim();
+    const stateName = city.split(',')[1]?.trim() || null;
+    try {
+      const { data: existingCity } = await supabase
+        .from('cities')
+        .select('id')
+        .ilike('name', cityName)
+        .maybeSingle();
+
+      if (existingCity) {
+        resolvedCityId = existingCity.id;
+      } else {
+        const { data: newCity } = await supabase
+          .from('cities')
+          .insert({ name: cityName, state: stateName })
+          .select('id')
+          .maybeSingle();
+        if (newCity) resolvedCityId = newCity.id;
+      }
+    } catch (cityErr) {
+      console.warn('City resolution error:', cityErr);
+    }
+  }
+
+  let dateOfBirth: string | null = null;
+  if (age && Number(age) >= 18) {
+    const birthYear = new Date().getFullYear() - Number(age);
+    dateOfBirth = `${birthYear}-01-15`;
+  }
+
+  // 3. Check or create/update profile
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('id')
@@ -113,30 +146,25 @@ authRouter.post('/register-client', requireAuth, validateBody(registerClientSche
 
   let profileId = existingProfile?.id;
 
+  const profileData = {
+    display_name: name,
+    age: Number(age) || null,
+    date_of_birth: dateOfBirth,
+    gender: gender || null,
+    interests: interests,
+    bio: bio || (city ? `Excited to connect in ${city}.` : `Looking to connect with ${interestedIn || 'people'}.`),
+    city_id: resolvedCityId,
+    verification_status: 'PENDING',
+    discovery_status: 'HIDDEN',
+    profile_completion: 75,
+  };
+
   if (profileId) {
-    await supabase.from('profiles').update({
-      display_name: name,
-      age: age || null,
-      gender: gender || null,
-      interests: interests,
-      bio: bio || `Looking to connect with ${interestedIn || 'people'}.`,
-      city_id: cityId || null,
-      verification_status: 'PENDING',
-      discovery_status: 'HIDDEN',
-      profile_completion: 60,
-    }).eq('id', profileId);
+    await supabase.from('profiles').update(profileData).eq('id', profileId);
   } else {
     const { data: newProfile, error: profileErr } = await supabase.from('profiles').insert({
       user_id: user.id,
-      display_name: name,
-      age: age || null,
-      gender: gender || null,
-      interests: interests,
-      bio: bio || `Looking to connect with ${interestedIn || 'people'}.`,
-      city_id: cityId || null,
-      verification_status: 'PENDING',
-      discovery_status: 'HIDDEN',
-      profile_completion: 60,
+      ...profileData,
     }).select('id').single();
 
     if (profileErr) throw profileErr;

@@ -4,7 +4,7 @@ import { adminApi } from '../lib/api';
 
 type DashData = {
   dashboard: {
-    users: { total: number; active: number; newToday: number };
+    users: { total: number; active: number; newToday: number; banned: number; deleted: number };
     profiles: { total: number; visible: number };
     requests: { pending: number; total: number };
     moderation: { pendingReports: number };
@@ -22,13 +22,16 @@ export default function DashboardPage() {
   const { data, isLoading, refetch } = useQuery<DashData>({
     queryKey: ['dashboard'],
     queryFn: () => adminApi.dashboard() as Promise<DashData>,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,       // 15s — show new logins & activity in real-time
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
   });
 
   const { data: overviewData } = useQuery<{ overview: Overview }>({
     queryKey: ['analytics-overview'],
     queryFn: () => adminApi.analyticsOverview() as Promise<{ overview: Overview }>,
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
   });
 
   const d = data?.dashboard;
@@ -37,6 +40,8 @@ export default function DashboardPage() {
   const stats = d ? [
     { label: 'Total Customers', value: d.users.total, sub: `${d.users.active} active`, icon: '👥', color: 'var(--primary)' },
     { label: 'New Today', value: d.users.newToday, sub: `+${ov?.newUsers7d ?? '…'} this week`, icon: '🆕', color: '#8B5CF6' },
+    { label: 'Banned Accounts', value: d.users.banned, sub: 'fully locked out', icon: '🚫', alert: d.users.banned > 0, color: d.users.banned > 0 ? 'var(--error)' : '#EF4444' },
+    { label: 'Deleted Accounts', value: d.users.deleted, sub: 'data wiped', icon: '🗑️', color: '#6B7280' },
     { label: 'Visible Profiles', value: d.profiles.visible, sub: `of ${d.profiles.total} total`, icon: '🪪', color: '#10B981' },
     { label: 'Pending Requests', value: d.requests.pending, sub: `${d.requests.total} total`, icon: '📋', alert: d.requests.pending > 0, color: d.requests.pending > 0 ? 'var(--warning)' : '#F59E0B' },
     { label: 'Pending Reports', value: d.moderation.pendingReports, sub: 'awaiting review', icon: '🛡️', alert: d.moderation.pendingReports > 0, color: d.moderation.pendingReports > 0 ? 'var(--error)' : '#EF4444' },
@@ -49,7 +54,18 @@ export default function DashboardPage() {
     <>
       <div className="admin-page-header">
         <h1 className="admin-page-title">Dashboard</h1>
-        <button className="btn btn-ghost btn-sm" onClick={() => refetch()}>↻ Refresh</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            fontSize: '0.72rem', color: 'var(--success)', fontWeight: 600,
+            background: 'rgba(16,185,129,0.08)', padding: '2px 10px',
+            borderRadius: 99, border: '1px solid rgba(16,185,129,0.25)',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', display: 'inline-block', animation: 'pulse-dot 2s infinite' }} />
+            Live · auto-refresh 15s
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => refetch()}>&#x21BB; Refresh</button>
+        </div>
       </div>
 
       <div className="admin-page-content">

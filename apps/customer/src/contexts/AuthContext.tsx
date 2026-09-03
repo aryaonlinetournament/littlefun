@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import {
   type User,
   onAuthStateChanged,
@@ -111,6 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { userStatus: 'PENDING' as UserStatus, isApproved: false, isPendingApproval: true };
   }, []);
 
+  // ── Periodic re-sync: poll every 30s while user is logged in ──────────
+  // This ensures that if an admin changes user status (PENDING → ACTIVE),
+  // the customer app reflects it within ~30 seconds without a page refresh.
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 
@@ -119,8 +124,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       queryClient.clear();
       setUser(firebaseUser);
 
+      // Clear any existing polling interval first
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+
       if (firebaseUser) {
         await syncUserData();
+
+        // Start 30s polling to detect admin-side status changes in real-time
+        syncIntervalRef.current = setInterval(async () => {
+          if (auth.currentUser) {
+            await syncUserData();
+          }
+        }, 30_000);
       } else {
         setUserId(null);
         setUniqueId(null);
@@ -133,7 +151,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
   }, [syncUserData, queryClient]);
 
   const signIn = async (email: string, password: string) => {
@@ -184,6 +207,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logOut = async () => {
+    // Stop polling before sign-out
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
+    }
     clearTokenCache();
     queryClient.clear();
     await signOut(auth);

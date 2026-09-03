@@ -77,6 +77,9 @@ export default function DiscoveryPage() {
   };
 
   const userName = getCleanName();
+  const userCity = (profileData as any)?.profile?.cities?.name || (profileData as any)?.profile?.city || '';
+  const userState = (profileData as any)?.profile?.cities?.state || '';
+  const locationLabel = userCity ? `${userCity}${userState ? `, ${userState}` : ''}` : '';
 
   // Share Connection Request State
   const [shareRequestModalTarget, setShareRequestModalTarget] = useState<DiscoveryProfile | null>(null);
@@ -103,12 +106,19 @@ export default function DiscoveryPage() {
     activeMeetups: 18,
     profileViews: 0,
     receivedLikes: 0,
-    areaLabel: 'In your area',
+    areaLabel: locationLabel ? `In ${userCity}` : 'In your area',
   };
 
-  const achieversList: AchieverItem[] = (fetchedAchievers && fetchedAchievers.length > 0)
+  const rawAchievers: AchieverItem[] = (fetchedAchievers && fetchedAchievers.length > 0)
     ? fetchedAchievers.slice(0, 5)
     : DEFAULT_5_ACHIEVERS;
+
+  const achieversList = rawAchievers.map((item, index) => {
+    if (index === 0 && userCity && (!fetchedAchievers || fetchedAchievers.length === 0)) {
+      return { ...item, city: `${userCity}` };
+    }
+    return item;
+  });
 
   const getRankBadgeStyle = (rank: number) => {
     if (rank === 1) return { bg: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', color: '#B45309', border: '1px solid #F59E0B', text: '🥇 #1' };
@@ -139,8 +149,15 @@ export default function DiscoveryPage() {
             <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
               {getGreeting()}, <span style={{ color: '#BE185D' }}>{userName}</span>!
             </h2>
-            <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: 2, fontWeight: 500 }}>
-              Discover top companions & exciting meetups around you
+            <div style={{ fontSize: '0.76rem', color: '#64748B', marginTop: 3, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span>Discover companions & meetups in</span>
+              {locationLabel ? (
+                <span style={{ color: '#0F172A', background: '#F1F5F9', padding: '1px 7px', borderRadius: 6, fontWeight: 700, border: '1px solid #E2E8F0', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  📍 {locationLabel} <span style={{ fontSize: '0.62rem', color: '#B45309' }}>🔒 Primary</span>
+                </span>
+              ) : (
+                <span>your area</span>
+              )}
             </div>
           </div>
           <span style={{ fontSize: '1.4rem' }}>✨</span>
@@ -240,8 +257,15 @@ export default function DiscoveryPage() {
                       <span>{achiever.name}</span>
                       <span style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: 800 }}>✓</span>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-3)', marginTop: 2 }}>
-                      📍 {achiever.city} · <span style={{ color: '#D97706', fontWeight: 700 }}>{achiever.rating}</span>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                      <span>📍 {achiever.city}</span>
+                      {userCity && achiever.city.toLowerCase().includes(userCity.toLowerCase()) && (
+                        <span style={{ fontSize: '0.62rem', color: '#16A34A', background: '#DCFCE7', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
+                          ✓ Your City
+                        </span>
+                      )}
+                      <span>·</span>
+                      <span style={{ color: '#D97706', fontWeight: 700 }}>{achiever.rating}</span>
                     </div>
                   </div>
 

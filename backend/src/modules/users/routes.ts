@@ -242,16 +242,35 @@ usersRouter.patch(
           .update({ status: 'APPROVED', reviewed_by: req.user!.id, reviewed_at: new Date().toISOString() })
           .eq('profile_id', profile.id);
       }
-    } else if (req.body.status === 'SUSPENDED' || req.body.status === 'BANNED') {
+    } else if (req.body.status === 'SUSPENDED' || req.body.status === 'BANNED' || req.body.status === 'DELETED') {
       await supabase
         .from('profiles')
         .update({ discovery_status: 'HIDDEN' })
         .eq('user_id', req.params.id);
+        
+      if (req.body.status === 'BANNED') {
+         if (data?.firebase_uid && !data.firebase_uid.startsWith('manual_')) {
+            const { getFirebaseAdmin } = await import('../../services/firebase/firebaseAdmin');
+            try {
+               await getFirebaseAdmin().auth().revokeRefreshTokens(data.firebase_uid);
+            } catch (e) { console.error('Failed to revoke tokens', e); }
+         }
+      } else if (req.body.status === 'DELETED') {
+         // Hard Delete Logic
+         if (data?.firebase_uid && !data.firebase_uid.startsWith('manual_')) {
+            const { getFirebaseAdmin } = await import('../../services/firebase/firebaseAdmin');
+            try {
+               await getFirebaseAdmin().auth().deleteUser(data.firebase_uid);
+            } catch (e) { console.error('Failed to delete firebase user', e); }
+         }
+         // Hard Delete from DB
+         await supabase.from('users').delete().eq('id', req.params.id);
+      }
     }
 
     await AuditService.adminAction({
       actor: req.user!,
-      action: 'ADMIN_CHANGED_USER_STATUS',
+      action: req.body.status === 'DELETED' ? 'ADMIN_DELETED_USER' : 'ADMIN_CHANGED_USER_STATUS',
       entityType: 'user',
       entityId: req.params.id,
       oldValue: { status: current.status },
@@ -382,9 +401,15 @@ usersRouter.patch(
 
     const { data: updated } = await supabase
       .from('users')
-      .select('id, unique_id, email, phone, role, status, plan_id, plans(name), profiles(display_name)')
+      .select('id, unique_id, email, phone, role, status, plan_id, firebase_uid, plans(name), profiles(display_name)')
       .eq('id', userId)
       .single();
+
+    // ⚡ Invalidate auth cache so the customer gets fresh status on their next request
+    // (prevents stale PENDING/ACTIVE state being served for up to 30s after admin update)
+    if ((updated as any)?.firebase_uid) {
+      invalidateUserCache((updated as any).firebase_uid);
+    }
 
     res.json({ success: true, user: updated });
   }

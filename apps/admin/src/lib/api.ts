@@ -59,6 +59,7 @@ export const adminApi = {
       const allUsers = (uRes.data || []).filter((u: any) => u.role !== 'SUPER_ADMIN');
       const totalUsers = allUsers.length;
       const activeUsers = allUsers.filter((u: any) => u.status === 'ACTIVE').length;
+      const bannedUsers = allUsers.filter((u: any) => u.status === 'BANNED').length;
 
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -76,7 +77,7 @@ export const adminApi = {
       return {
         success: true,
         dashboard: {
-          users: { total: totalUsers, active: activeUsers, newToday: newToday || totalUsers },
+          users: { total: totalUsers, active: activeUsers, newToday: newToday || totalUsers, banned: bannedUsers, deleted: 0 },
           profiles: { total: allProfiles.length || totalUsers, visible: visibleProfiles || activeUsers },
           requests: { pending: pendingRequests, total: allRequests.length },
           moderation: { pendingReports },
@@ -199,7 +200,7 @@ export const adminApi = {
         };
       }
     } catch {}
-    return adminFetch(`/api/users${q(params)}`);
+    return adminFetch(`/api/admin/users${q(params)}`);
   },
 
   createCustomer: async (data: Record<string, unknown>) => {
@@ -290,15 +291,7 @@ export const adminApi = {
   },
 
   setUserStatus: async (id: string, status: string) => {
-    try {
-      await supabaseAdmin.from('users').update({ status }).eq('id', id);
-      if (status === 'ACTIVE') {
-        await supabaseAdmin.from('profiles').update({ verification_status: 'APPROVED', discovery_status: 'VISIBLE' }).eq('user_id', id);
-      }
-      return { success: true };
-    } catch {
-      return adminFetch(`/api/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    }
+    return adminFetch(`/api/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
   },
 
 
@@ -451,21 +444,10 @@ export const adminApi = {
   },
 
   approveVerification: async (id: string) => {
-    try {
-      await supabaseAdmin.from('profiles').update({ verification_status: 'APPROVED', discovery_status: 'VISIBLE' }).eq('id', id);
-      const { data: profile } = await supabaseAdmin.from('profiles').select('user_id').eq('id', id).maybeSingle();
-      const targetUserId = profile?.user_id || id;
-      await supabaseAdmin.from('users').update({ status: 'ACTIVE' }).eq('id', targetUserId);
-      return { success: true, message: 'Verification approved and user account activated.' };
-    } catch {}
     return adminFetch(`/api/admin/verification-queue/${id}/approve`, { method: 'POST' });
   },
 
   rejectVerification: async (id: string, reason: string) => {
-    try {
-      await supabaseAdmin.from('profiles').update({ verification_status: 'REJECTED' }).eq('id', id);
-      return { success: true, message: 'Verification rejected.' };
-    } catch {}
     return adminFetch(`/api/admin/verification-queue/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
   },
 
@@ -948,6 +930,20 @@ export const adminApi = {
       return { success: true };
     } catch {}
     return adminFetch(`/api/admin/users/${userId}/boost`, { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  // ── Firebase → Supabase Sync ──────────────────────────────────────
+  // Imports ALL Firebase Auth users that are missing from Supabase DB.
+  // Call this once to resolve the gap between Firebase Console users and admin panel.
+  syncFirebaseUsers: async (): Promise<{
+    success: boolean;
+    message: string;
+    synced: number;
+    skipped: number;
+    failed: number;
+    failedUids?: string[];
+  }> => {
+    return adminFetch('/api/admin/sync-firebase-users', { method: 'POST' });
   },
 };
 

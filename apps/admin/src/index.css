@@ -552,3 +552,9 @@ a { color: inherit; text-decoration: none; }
   border-left: 3px solid var(--primary);
 }
 
+/* ── Live status pulse dot animation ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
