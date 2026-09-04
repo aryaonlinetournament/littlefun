@@ -138,6 +138,11 @@ export default function RegisterPage() {
       const compressedDataUrl = await compressImage(file);
       if (compressedDataUrl) {
         setSelfieUrl(compressedDataUrl);
+        try {
+          sessionStorage.setItem('littlefun_selfie_preview', compressedDataUrl);
+        } catch {
+          // ignore storage quota error if any
+        }
       } else {
         setError('Failed to process image. Please try another photo.');
       }

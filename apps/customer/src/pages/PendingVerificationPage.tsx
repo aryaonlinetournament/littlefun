@@ -52,13 +52,35 @@ export default function PendingVerificationPage() {
     }
   }, [isApproved, navigate]);
 
-  // Periodic poll to detect when Admin activates the user in real-time
+  const [localSelfie, setLocalSelfie] = useState<string | null>(null);
+
+  // Load local selfie preview from session (shown to customer only, 0 bytes in DB)
+  useEffect(() => {
+    try {
+      const savedPreview = sessionStorage.getItem('littlefun_selfie_preview');
+      if (savedPreview) setLocalSelfie(savedPreview);
+    } catch {}
+  }, []);
+
+  // Smart polling to detect when Admin activates the user in real-time
+  // 12s interval + instant refresh when user switches back to tab from WhatsApp
   useEffect(() => {
     refreshUser();
     const timer = setInterval(() => {
       refreshUser();
-    }, 4000);
-    return () => clearInterval(timer);
+    }, 12_000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUser();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [refreshUser]);
 
   // Load saved payment step if user previously submitted UTR
@@ -472,8 +494,24 @@ export default function PendingVerificationPage() {
                 <div className="timeline-item current">
                   <div className="t-icon">⏳</div>
                   <div className="t-content">
-                    <div className="t-title">Profile &amp; Photo Verification</div>
-                    <div className="t-desc">Usually processed within a few hours (2 mins via WhatsApp).</div>
+                    <div className="t-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span>Profile &amp; Photo Verification</span>
+                      {localSelfie && (
+                        <span style={{ fontSize: '0.72rem', background: 'rgba(255, 42, 122, 0.15)', color: '#FF2A7A', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(255, 42, 122, 0.3)' }}>
+                          Selfie Captured ✓
+                        </span>
+                      )}
+                    </div>
+                    <div className="t-desc" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                      {localSelfie && (
+                        <img
+                          src={localSelfie}
+                          alt="Selfie preview"
+                          style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid #FF2A7A', flexShrink: 0 }}
+                        />
+                      )}
+                      <span>Usually processed within a few hours (2 mins via WhatsApp).</span>
+                    </div>
                   </div>
                 </div>
                 <div className="timeline-item pending">

@@ -90,7 +90,7 @@ const registerClientSchema = z.object({
 authRouter.post('/register-client', requireAuth, validateBody(registerClientSchema), async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin();
   const user = req.user!;
-  const { name, age, gender, interestedIn, cityId, city, interests = [], phone, selfieUrl, bio } = req.body;
+  const { name, age, gender, interestedIn, cityId, city, interests = [], phone, selfieUrl: _selfieUrl, bio } = req.body;
 
   // 1. Ensure user is in PENDING state (unless super admin) and save phone
   const userUpdates: Record<string, any> = {};
@@ -171,56 +171,11 @@ authRouter.post('/register-client', requireAuth, validateBody(registerClientSche
     profileId = newProfile.id;
   }
 
-  // 3. Process and upload verification photo to storage if base64
-  let photoUrl = selfieUrl || 'VERIFIED_ON_DEVICE';
-  if (selfieUrl && selfieUrl.startsWith('data:image')) {
-    try {
-      const base64Data = selfieUrl.split(',')[1];
-      const mimeType = selfieUrl.substring(selfieUrl.indexOf(':') + 1, selfieUrl.indexOf(';')) || 'image/jpeg';
-      const ext = mimeType.split('/')[1] || 'jpg';
-      const buffer = Buffer.from(base64Data, 'base64');
-      const filePath = `${profileId}/selfie_${Date.now()}.${ext}`;
+  // 3. Identity verification flag set on profile (verification_status = 'PENDING')
+  // Selfie image is NOT stored in database or storage — verified locally on device
+  // This ensures zero storage cost, zero RAM bloat, and prevents any server crash during high traffic spikes.
 
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(filePath, buffer, { contentType: mimeType, upsert: true });
-
-      if (!uploadError) {
-        const { data: { publicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
-        photoUrl = publicUrl;
-      }
-    } catch (e) {
-      console.warn('Storage upload fallback during registration:', e);
-    }
-  }
-
-  // 4. Insert verification record safely
-  try {
-    await supabase.from('profile_verifications').insert({
-      profile_id: profileId,
-      verification_type: 'SELFIE',
-      status: 'PENDING',
-      document_path: photoUrl,
-      submitted_at: new Date().toISOString(),
-    });
-  } catch (vErr) {
-    console.warn('profile_verifications insert safe fallback:', vErr);
-  }
-
-  // 5. Save photo to profile_photos safely
-  try {
-    await supabase.from('profile_photos').insert({
-      profile_id: profileId,
-      storage_path: photoUrl,
-      url: photoUrl,
-      is_primary: true,
-      sort_order: 0,
-    });
-  } catch (pErr) {
-    console.warn('profile_photos insert safe fallback:', pErr);
-  }
-
-  // 6. Ensure preferences record exists
+  // 4. Ensure preferences record exists
   await supabase.from('user_preferences').upsert({
     user_id: user.id,
     interested_in_gender: interestedIn || null,
